@@ -1,49 +1,62 @@
 use reqwest::Client;
-use scraper::{Html, Selector};
+use serde::Deserialize;
+use serde_json;
 use tokio;
-use tokio::time::{sleep, Duration};
 
-async fn get_with_user_agent(url: &str) -> Result<String, reqwest::Error> {
-    let client = Client::new();
-    let res = client
-        .get(url)
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-        .send()
-        .await?;
-    let body = res.text().await?;
-    Ok(body)
+#[derive(Deserialize, Debug)]
+struct Item {
+    text: Option<String>,
+    name: Option<String>, // Make 'name' optional
+    flags: Option<Flags>,
 }
 
-async fn scrape_with_delay() {
-    let delay = Duration::from_secs(2); // 2 seconds
-    sleep(delay).await; // Delay before making a request
+#[derive(Deserialize, Debug)]
+struct Flags {
+    unique: bool,
 }
 
 #[tokio::main]
 async fn main() {
-    let url = "https://www.pathofexile.com/trade2/search/poe2/Standard";
+    let api_url = "https://www.pathofexile.com/api/trade2/data/items";
+    let client = Client::new();
 
-    // Send the request with a user-agent
-    let body = match get_with_user_agent(url).await {
-        Ok(body) => body,
-        Err(err) => {
-            eprintln!("Error fetching data: {}", err);
-            return;
-        }
-    };
+    // Send a GET request to the API with User-Agent header
+    let res = client.get(api_url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36")
+        .send()
+        .await
+        .expect("Failed to send request");
 
-    // Print the raw HTML response to debug
-    println!("HTML Body: {}", body);
-
-    // Parse the body as HTML
-    let document = Html::parse_document(&body);
-    let selector = Selector::parse("h1").unwrap();
-
-    // Extract and print all the h1 tags
-    for element in document.select(&selector) {
-        println!("{}", element.text().collect::<Vec<_>>().join("\n"));
+    // Check if the request was successful (status 200)
+    if !res.status().is_success() {
+        println!("Request failed with status: {}", res.status());
+        return;
     }
 
-    // Optionally, you can introduce a delay between requests if you're scraping multiple pages
-    scrape_with_delay().await;
+    // Try to parse the JSON response
+    let body = res.json::<serde_json::Value>()
+        .await
+        .expect("Failed to parse JSON");
+    println!("Raw response body: {}", body);
+    let json_output = serde_json::to_string_pretty(&body).unwrap();
+    println!("Pretty JSON output: {}", json_output);
+
+    // Extract the "result" field
+    let items_value = body["result"].clone();
+    println!("Items Found: {}", items_value.as_array().unwrap().len());
+
+    let items: Vec<Item> = serde_json::from_value(items_value)
+        .expect("Failed to parse items");
+
+    println!("Items count: {}", items.len());
+
+    // Filter unique items
+    let unique_items: Vec<&Item> = items.iter()
+        .filter(|item| item.flags.as_ref().map_or(false, |flags| flags.unique))
+        .collect();
+
+    // Print unique items
+    for item in unique_items {
+        println!("Unique Item: {} - {}", item.name.as_ref().unwrap_or(&"Unknown".to_string()), item.text.as_ref().unwrap_or(&"".to_string()));
+    }
 }
