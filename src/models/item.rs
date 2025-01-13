@@ -95,7 +95,7 @@ impl Item {
                 .sum::<f64>();
                 
             scaled_values.iter_mut()
-                .for_each(|value| *value *= (1.0 + scaling_factor));
+                .for_each(|value| *value *= 1.0 + scaling_factor);
         }
         
         scaled_values

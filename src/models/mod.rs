@@ -1,4 +1,3 @@
-// Core modules that contain actual files
 pub mod item_type;
 pub mod item;
 pub mod stats;
