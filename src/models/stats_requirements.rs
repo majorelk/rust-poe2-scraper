@@ -9,12 +9,9 @@ pub enum CoreAttribute {
     Intelligence,
 }
 
-// Represents requirements for using an item or modifier
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatRequirements {
-    // Primary attributes this item or modifier is based on
     pub primary_attributes: Vec<CoreAttribute>,
-    // Minimum values needed for each attribute
     pub attribute_thresholds: HashMap<CoreAttribute, u32>,
 }
 
@@ -124,13 +121,13 @@ impl ItemBaseDatabase {
     }
 
     // Save the database to a JSON file
-    pub async fn save_to_file(&self, path: &str) -> std::io::Result<()> {
+    pub async fn save_to_file(&self, path: &str) -> crate::errors::Result<()> {
         let json = serde_json::to_string_pretty(&self.bases)?;
-        tokio::fs::write(path, json).await
+        tokio::fs::write(path, json).await?;
+        Ok(())
     }
 
-    // Load the database from a JSON file
-    pub async fn load_from_file(&mut self, path: &str) -> std::io::Result<()> {
+    pub async fn load_from_file(&mut self, path: &str) -> crate::errors::Result<()> {
         let content = tokio::fs::read_to_string(path).await?;
         self.bases = serde_json::from_str(&content)?;
         Ok(())

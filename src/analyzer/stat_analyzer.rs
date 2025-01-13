@@ -1,7 +1,13 @@
 use std::collections::{HashMap, HashSet};
-use crate::models::stats_requirements::{CoreAttribute, StatRequirements};
-use crate::models::{Item, ItemModifier};
+use crate::data::item_base_data_loader::BaseDataLoader;
 use serde::{Serialize, Deserialize};
+
+use crate::models::{
+    CoreAttribute,
+    StatRequirements,
+    Item,
+    ItemModifier,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttributeCorrelation {

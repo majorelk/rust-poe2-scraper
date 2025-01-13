@@ -1,6 +1,11 @@
 use serde::{Deserialize, Serialize};
-use super::item_type::{ItemType, ItemRarity};
 use std::collections::HashMap;
+use super::item_type::{ItemType, ItemRarity};
+use super::stats_requirements::{
+    CoreAttribute,
+    StatRequirements,
+    ModifierStatRequirements,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ItemModifier {

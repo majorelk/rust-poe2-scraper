@@ -8,6 +8,7 @@ pub enum ScraperError {
     ValidationError(String),
     RateLimitError(String),
     NetworkError(String),
+    IoError(String),
 }
 
 impl fmt::Display for ScraperError {
@@ -18,6 +19,7 @@ impl fmt::Display for ScraperError {
             ScraperError::ValidationError(msg) => write!(f, "Validation Error: {}", msg),
             ScraperError::RateLimitError(msg) => write!(f, "Rate Limit Error: {}", msg),
             ScraperError::NetworkError(msg) => write!(f, "Network Error: {}", msg),
+            ScraperError::IoError(msg) => write!(f, "IO Error: {}", msg),
         }
     }
 }
@@ -33,6 +35,12 @@ impl From<reqwest::Error> for ScraperError {
 impl From<serde_json::Error> for ScraperError {
     fn from(err: serde_json::Error) -> Self {
         ScraperError::ParseError(err.to_string())
+    }
+}
+
+impl From<std::io::Error> for ScraperError {
+    fn from(err: std::io::Error) -> Self {
+        ScraperError::IoError(err.to_string())
     }
 }
 

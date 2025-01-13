@@ -1,0 +1,57 @@
+{
+	"query": {
+		"filters": {
+			"trade_filters": {
+				"filters": {
+					"price": {
+						"option": "exalted"
+					}
+				}
+			},
+			"type_filters": {
+				"filters": {
+					"category": {
+						"option": "weapon.warstaff"
+					}
+				}
+			}
+		},
+		"stats": [
+			{
+				"filters": [
+					{
+						"id": "explicit.stat_1509134228"
+					},
+					{
+						"disabled": true,
+						"id": "explicit.stat_587431675"
+					},
+					{
+						"disabled": true,
+						"id": "explicit.stat_3556824919"
+					}
+				],
+				"type": "and"
+			},
+			{
+				"filters": [
+					{
+						"id": "explicit.stat_803737631"
+					}
+				],
+				"type": "not"
+			},
+			{
+				"filters": [
+					{
+						"id": "explicit.stat_691932474"
+					}
+				],
+				"type": "not"
+			}
+		],
+		"status": {
+			"option": "any"
+		}
+	}
+}
