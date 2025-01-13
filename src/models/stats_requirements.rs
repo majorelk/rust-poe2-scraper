@@ -48,7 +48,7 @@ impl StatRequirements {
     }
 }
 
-// Extend your existing ItemType to include stat requirements
+// Extend ItemType to include stat requirements
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ItemBaseType {
     pub name: String,
@@ -134,7 +134,7 @@ impl ItemBaseDatabase {
     }
 }
 
-// Extend your existing ItemModifier to include stat dependencies
+// Extend ItemModifier to include stat dependencies
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModifierStatRequirements {
     pub requirements: StatRequirements,
