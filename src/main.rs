@@ -25,6 +25,9 @@ struct Args {
 
     #[clap(short, long)]
     max_price: Option<f64>,
+    
+    #[clap(long)]
+    analyze_stats: bool,
 }
 
 #[tokio::main]
@@ -52,8 +55,18 @@ async fn main() -> Result<()> {
     
     for raw_item in raw_items {
         if let Ok(item) = serde_json::from_value::<Item>(raw_item) {
-            analyzer.process_item(&item);
+            modifier_analyzer.process_item(&item);
+            if args.analyze_stats {
+                stat_analyzer.process_item(&item);
+            }
         }
+    }
+
+    // Generate and save analysis reports
+    if args.analyze_stats {
+        let stat_report = stat_analyzer.generate_attribute_report();
+        println!("Stat Analysis Report:");
+        println!("{}", serde_json::to_string_pretty(&stat_report)?);
     }
 
     println!("Analysis complete!");

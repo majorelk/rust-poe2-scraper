@@ -8,6 +8,8 @@ pub struct ItemModifier {
     pub tier: Option<i32>,
     pub values: Vec<f64>,
     pub is_crafted: bool,
+    pub stat_requirements: Option<ModifierStatRequirements>,
+    pub attribute_scaling: Option<HashMap<CoreAttribute, f64>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,6 +27,8 @@ pub struct Item {
     pub price: Option<ItemPrice>,
     pub stats: HashMap<String, f64>,
     pub corrupted: bool,
+    pub stat_requirements: StatRequirements,
+    pub attribute_values: HashMap<CoreAttribute, u32>,
 }
 
 impl Item {
@@ -37,6 +41,8 @@ impl Item {
             price: None,
             stats: HashMap::new(),
             corrupted: false,
+            stat_requirements: StatRequirements::new(),
+            attribute_values: HashMap::new(),
         }
     }
 
@@ -55,6 +61,39 @@ impl Item {
 
     pub fn is_unique(&self) -> bool {
         self.item_type.rarity == ItemRarity::Unique
+    }
+
+    pub fn can_have_modifier(&self, modifier: &ItemModifier) -> bool {
+        if let Some(req) = &modifier.stat_requirements {
+            for (attr, threshold) in &req.requirements.attribute_thresholds {
+                if let Some(value) = self.attribute_values.get(attr) {
+                    if value < threshold {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+    
+    pub fn calculate_modifier_value(&self, modifier: &ItemModifier) -> Vec<f64> {
+        let mut scaled_values = modifier.values.clone();
+        
+        if let Some(scaling) = &modifier.attribute_scaling {
+            let scaling_factor: f64 = scaling.iter()
+                .map(|(attr, factor)| {
+                    let attr_value = self.attribute_values.get(attr).unwrap_or(&0);
+                    *factor * (*attr_value as f64 / 100.0)
+                })
+                .sum::<f64>();
+                
+            scaled_values.iter_mut()
+                .for_each(|value| *value *= (1.0 + scaling_factor));
+        }
+        
+        scaled_values
     }
 }
 
