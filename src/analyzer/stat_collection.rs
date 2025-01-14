@@ -1,7 +1,10 @@
-use crate::fetcher::{TradeApiClient, SearchRequest};
+use crate::fetcher::{
+    TradeApiClient, SearchRequest, TradeQuery, StatusFilter, StatFilter,
+    StatFilterValue, StatValue, QueryFilters, TypeFilters, CategoryFilter, 
+    CategoryOption,
+};
 use crate::models::{CoreAttribute, Item};
 use crate::errors::Result;
-use std::collections::HashMap;
 use tokio::time::{sleep, Duration};
 
 pub struct StatCollector {
@@ -50,9 +53,6 @@ impl StatCollector {
     }
 
     fn build_attribute_query(&self, attr: CoreAttribute, min: u32, max: u32) -> SearchRequest {
-        // The API expects specific stat IDs for attribute requirements.
-        // These IDs are fixed and correspond to the game's internal representation
-        // of attribute requirements.
         let stat_id = match attr {
             CoreAttribute::Strength => "explicit.stat_3299347043",
             CoreAttribute::Dexterity => "explicit.stat_1284417561",
@@ -60,37 +60,35 @@ impl StatCollector {
         };
     
         SearchRequest {
-            query: serde_json::json!({
-                "query": {
-                    // The status filter tells the API we only want items from online sellers
-                    "status": {
-                        "option": "online"
-                    },
-                    // Stats need to be structured as filters within a stat group
-                    "stats": [{
-                        "type": "and",  // This indicates all filters must match
-                        "filters": [{
-                            "id": stat_id,  // We use the specific stat ID instead of the attribute name
-                            "value": {
-                                "min": min,
-                                "max": max
-                            }
-                        }]
+            query: TradeQuery {
+                status: StatusFilter {
+                    option: "online".to_string(),
+                },
+                stats: vec![StatFilter {
+                    r#type: "and".to_string(),
+                    filters: vec![StatFilterValue {
+                        id: stat_id.to_string(),
+                        value: Some(StatValue {
+                            min: Some(min),
+                            max: Some(max),
+                        }),
+                        disabled: false,
                     }],
-                    // Price filters go in a separate trade_filters section
-                    "filters": {
-                        "trade_filters": {
-                            "filters": {
-                                "price": {
-                                    "min": 1,
-                                    "max": 10
-                                }
-                            }
-                        }
-                    }
-                }
-            }),
-            sort: None,  // The sort is now part of the main query json
+                    disabled: false,
+                }],
+                filters: QueryFilters {
+                    type_filters: TypeFilters {
+                        filters: CategoryFilter {
+                            category: CategoryOption {
+                                option: "armour".to_string(),
+                            },
+                        },
+                    },
+                },
+            },
+            sort: Some(serde_json::json!({
+                "price": "asc"
+            })),
         }
     }
 

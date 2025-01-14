@@ -4,10 +4,23 @@ use serde_json;
 
 use crate::{
     analyzer::{ModifierAnalyzer, StatAnalyzer, StatCollector},
-    fetcher::{TradeApiClient, SearchRequest},
     models::{Item, ItemModifier},
     errors::{ScraperError, Result},
     data::item_base_data_loader::BaseDataLoader,
+};
+use crate::fetcher::{
+    TradeApiClient,
+    SearchRequest,
+    TradeQuery,
+    StatusFilter,
+    StatFilter,
+    StatFilterValue,
+    StatValue,
+    QueryFilters,
+    TypeFilters,
+    CategoryFilter,
+    CategoryOption,
+    TradeStatus,
 };
 
 // These are your top-level modules
@@ -86,14 +99,28 @@ fn main() -> Result<()> {
         let mut stat_analyzer = StatAnalyzer::new();
 
         let query = SearchRequest {
-            query: serde_json::json!({
-                "status": { "option": "online" },
-                "price": {
-                    "min": args.min_price,
-                    "max": args.max_price
-                }
-            }),
-            sort: None,
+            query: TradeQuery {
+                status: StatusFilter {
+                    option: "online".to_string(),
+                },
+                stats: vec![StatFilter {
+                    r#type: "and".to_string(),
+                    filters: vec![],
+                    disabled: false,
+                }],
+                filters: QueryFilters {
+                    type_filters: TypeFilters {
+                        filters: CategoryFilter {
+                            category: CategoryOption {
+                                option: "any".to_string(),
+                            },
+                        },
+                    },
+                },
+            },
+            sort: Some(serde_json::json!({
+                "price": "asc"
+            })),
         };
 
         let search_response = client.search_items(query).await?;
