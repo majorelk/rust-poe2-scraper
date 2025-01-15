@@ -1,4 +1,4 @@
-use crate::models::{Item, ItemModifier, ModifierStats, StatisticalMeasures};
+use crate::models::{ItemResponse, ModifierStats, StatisticalMeasures, ModInfo};
 use std::collections::HashMap;
 
 pub struct ModifierAnalyzer {
@@ -18,21 +18,27 @@ impl ModifierAnalyzer {
         }
     }
 
-    pub fn process_item(&mut self, item: &Item) {
-        if let Some(price) = item.price.as_ref() {
-            for modifier in &item.modifiers {
-                self.process_modifier(modifier, price.amount);
+    pub fn process_item(&mut self, item: &ItemResponse) {
+        if let Some(price) = &item.listing.price {
+            // Access explicit mods through the extended.mods structure
+            if let Some(mods) = item.item.extended.mods.explicit.as_ref() {
+                for mod_info in mods {
+                    self.process_modifier(mod_info, price.amount);
+                }
             }
         }
     }
 
-    fn process_modifier(&mut self, modifier: &ItemModifier, price: f64) {
+    fn process_modifier(&mut self, mod_info: &ModInfo, price: f64) {
         let stats = self.stats
-            .entry(modifier.name.clone())
-            .or_insert_with(|| ModifierStats::new(modifier.name.clone()));
+            .entry(mod_info.name.clone())
+            .or_insert_with(|| ModifierStats::new(mod_info.name.clone()));
 
-        for value in &modifier.values {
-            stats.add_data_point(*value, price);
+        // Get the first magnitude value if it exists
+        if let Some(magnitude) = mod_info.magnitudes.first() {
+            if let Ok(value) = magnitude.min.parse::<f64>() {
+                stats.add_data_point(value, price);
+            }
         }
     }
 

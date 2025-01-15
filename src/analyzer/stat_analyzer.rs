@@ -7,22 +7,24 @@ use crate::models::{
     StatRequirements,
     Item,
     ItemModifier,
+    ItemResponse,
+    ModInfo
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttributeCorrelation {
-    pub attribute: CoreAttribute,
+    pub attribute: String,
     pub occurrence_count: u32,
     pub average_threshold: f64,
-    pub modifier_correlations: HashMap<String, f64>,  // modifier name -> correlation strength
+    pub modifier_correlations: HashMap<String, f64>,
 }
 
 #[derive(Debug)]
 pub struct StatAnalyzer {
     // Track which modifiers appear on items with specific attribute requirements
-    modifier_attribute_occurrences: HashMap<String, HashMap<CoreAttribute, u32>>,
+    modifier_attribute_occurrences: HashMap<String, HashMap<String, u32>>,
     // Track the average attribute thresholds for each modifier
-    modifier_thresholds: HashMap<String, HashMap<CoreAttribute, Vec<u32>>>,
+    modifier_thresholds: HashMap<String, HashMap<String, Vec<u32>>>,
     // Track which modifiers commonly appear together on items with specific attributes
     modifier_correlations: HashMap<String, HashMap<String, u32>>,
     // Keep track of total items processed for calculating percentages
@@ -39,55 +41,59 @@ impl StatAnalyzer {
         }
     }
 
-    pub fn process_item(&mut self, item: &Item) {
+    pub fn process_item(&mut self, item: &ItemResponse) {
         self.total_items += 1;
 
-        // Get the set of attributes required by this item
-        let item_attributes: HashSet<_> = item.stat_requirements
-            .primary_attributes
-            .iter()
-            .collect();
+        // Get stat requirements from the ItemResponse
+        let stat_requirements = item.get_stat_requirements();
+        let item_attributes: HashSet<_> = stat_requirements.keys().collect();
 
-        // Process each modifier on the item
-        for modifier in &item.modifiers {
-            self.update_modifier_stats(modifier, &item_attributes, &item.attribute_values);
+        // Process explicit mods
+        if let Some(mods) = item.item.extended.mods.explicit.as_ref() {
+            for mod_info in mods {
+                self.update_modifier_stats(
+                    mod_info,
+                    &item_attributes,
+                    &stat_requirements
+                );
+            }
+
+            // Update correlations between mods
+            self.update_modifier_correlations(mods);
         }
-
-        // Update modifier correlations
-        self.update_modifier_correlations(&item.modifiers);
     }
 
     fn update_modifier_stats(
         &mut self,
-        modifier: &ItemModifier,
-        item_attributes: &HashSet<&CoreAttribute>,
-        attribute_values: &HashMap<CoreAttribute, u32>
+        mod_info: &ModInfo,
+        item_attributes: &HashSet<&String>,
+        stat_requirements: &HashMap<String, u32>
     ) {
         let mod_occurrences = self.modifier_attribute_occurrences
-            .entry(modifier.name.clone())
+            .entry(mod_info.name.clone())
             .or_default();
         
         let mod_thresholds = self.modifier_thresholds
-            .entry(modifier.name.clone())
+            .entry(mod_info.name.clone())
             .or_default();
 
         // Update occurrence counts and thresholds for each attribute
         for attr in item_attributes {
             *mod_occurrences.entry((*attr).clone()).or_default() += 1;
             
-            if let Some(value) = attribute_values.get(attr) {
+            if let Some(&value) = stat_requirements.get(*attr) {
                 mod_thresholds
                     .entry((*attr).clone())
                     .or_default()
-                    .push(*value);
+                    .push(value);
             }
         }
     }
 
-    fn update_modifier_correlations(&mut self, modifiers: &[ItemModifier]) {
+    fn update_modifier_correlations(&mut self, mods: &[ModInfo]) {
         // Update correlations between all pairs of modifiers
-        for (i, mod1) in modifiers.iter().enumerate() {
-            for mod2 in modifiers.iter().skip(i + 1) {
+        for (i, mod1) in mods.iter().enumerate() {
+            for mod2 in mods.iter().skip(i + 1) {
                 let correlations = self.modifier_correlations
                     .entry(mod1.name.clone())
                     .or_default();
@@ -104,7 +110,7 @@ impl StatAnalyzer {
         }
     }
 
-    pub fn analyze_attribute_correlations(&self) -> HashMap<CoreAttribute, AttributeCorrelation> {
+    pub fn analyze_attribute_correlations(&self) -> HashMap<String, AttributeCorrelation> {
         let mut correlations = HashMap::new();
 
         for (modifier_name, attr_occurrences) in &self.modifier_attribute_occurrences {

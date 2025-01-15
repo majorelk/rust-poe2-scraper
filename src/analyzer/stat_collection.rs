@@ -3,7 +3,14 @@ use crate::fetcher::{
     StatFilterValue, StatValue, QueryFilters, TypeFilters, CategoryFilter, 
     CategoryOption,
 };
-use crate::models::{CoreAttribute, Item};
+use crate::models::{
+    CoreAttribute,
+    StatRequirements,
+    Item,
+    ItemModifier,
+    ItemResponse,
+    ModInfo,
+};
 use crate::errors::Result;
 use tokio::time::{sleep, Duration};
 
@@ -29,7 +36,7 @@ impl StatCollector {
         }
     }
 
-    pub async fn collect_stat_data(&mut self) -> Result<Vec<Item>> {
+    pub async fn collect_stat_data(&mut self) -> Result<Vec<ItemResponse>> {
         let mut all_items = Vec::new();
         
         // Collect items for each attribute type

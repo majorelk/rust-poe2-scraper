@@ -2,7 +2,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use crate::errors::Result;
 use std::time::{Duration, Instant};
-use crate::models::Item;
+use crate::models::{Item, ItemResponse};
 use rand; // 0.8.4
 
 #[derive(Debug, Serialize)]
@@ -272,7 +272,7 @@ impl TradeApiClient {
         }
     }
 
-    pub async fn fetch_items_with_stats(&mut self, query: SearchRequest) -> Result<Vec<Item>> {
+    pub async fn fetch_items_with_stats(&mut self, query: SearchRequest) -> Result<Vec<ItemResponse>> {
         println!("Starting items with stats fetch...");
         
         let search_response = self.search_items(query).await?;
@@ -281,11 +281,18 @@ impl TradeApiClient {
         let raw_items = self.fetch_items(search_response.get_result_ids()).await?;
         println!("Fetched {} raw items", raw_items.len());
         
-        let items: Vec<Item> = raw_items
+        let items: Vec<ItemResponse> = raw_items
             .into_iter()
             .filter_map(|raw_item| {
-                match serde_json::from_value::<Item>(raw_item.clone()) {
-                    Ok(item) => Some(item),
+                match serde_json::from_value::<ItemResponse>(raw_item.clone()) {
+                    Ok(item) => {
+                        // Log useful information about each item
+                        println!("Processed item: {} - {} {}", 
+                            item.id,
+                            item.item.base_type,
+                            item.listing.price.amount);
+                        Some(item)
+                    },
                     Err(e) => {
                         eprintln!("Failed to parse item: {}", e);
                         eprintln!("Raw item data: {}", serde_json::to_string_pretty(&raw_item).unwrap_or_default());

@@ -4,7 +4,7 @@ use serde_json;
 
 use crate::{
     analyzer::{ModifierAnalyzer, StatAnalyzer, StatCollector},
-    models::{Item, ItemModifier},
+    models::{Item, ItemModifier, ItemResponse},
     errors::{ScraperError, Result},
     data::item_base_data_loader::BaseDataLoader,
 };
@@ -127,12 +127,16 @@ fn main() -> Result<()> {
         let raw_items = client.fetch_items(search_response.get_result_ids()).await?;
         
         for raw_item in raw_items {
-            if let Ok(mut item) = serde_json::from_value::<Item>(raw_item) {
-                // Look up base type information
-                if let Some(base_type) = base_loader.get_base(&item.item_type.base_type) {
-                    // Update item with base requirements
-                    item.stat_requirements = base_type.stat_requirements.clone();
-                }
+            if let Ok(item) = serde_json::from_value::<ItemResponse>(raw_item) {
+                // Note: We don't need to make item mutable anymore because we're not modifying it
+                
+                // For debugging/logging
+                println!("Processing {} - {}", item.item.base_type, item.item.type_line);
+                
+                // We can still use base_type information if needed, but the API already gives us requirements
+                // if let Some(base_type) = base_loader.get_base(&item.item.base_type) {
+                //     // Do something with base_type if needed
+                // }
                 
                 modifier_analyzer.process_item(&item);
                 if args.analyze_stats {
