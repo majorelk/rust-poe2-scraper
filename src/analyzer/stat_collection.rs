@@ -100,14 +100,14 @@ impl StatCollector {
     }
 
     // Helper method to save collected data for later analysis
-    pub async fn save_collected_data(&self, items: &[Item], path: &str) -> Result<()> {
+    pub async fn save_collected_data(&self, items: &[ItemResponse], path: &str) -> Result<()> {
         let json = serde_json::to_string_pretty(items)?;
         tokio::fs::write(path, json).await?;
         Ok(())
     }
 
     // Helper method to load previously collected data
-    pub async fn load_collected_data(path: &str) -> Result<Vec<Item>> {
+    pub async fn load_collected_data(path: &str) -> Result<Vec<ItemResponse>> {
         let content = tokio::fs::read_to_string(path).await?;
         let items = serde_json::from_str(&content)?;
         Ok(items)

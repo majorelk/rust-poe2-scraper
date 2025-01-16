@@ -48,19 +48,17 @@ impl StatAnalyzer {
         let stat_requirements = item.get_stat_requirements();
         let item_attributes: HashSet<_> = stat_requirements.keys().collect();
 
-        // Process explicit mods
-        if let Some(mods) = item.item.extended.mods.explicit.as_ref() {
-            for mod_info in mods {
-                self.update_modifier_stats(
-                    mod_info,
-                    &item_attributes,
-                    &stat_requirements
-                );
-            }
-
-            // Update correlations between mods
-            self.update_modifier_correlations(mods);
+        // The explicit mods are directly a Vec
+        for mod_info in &item.item.extended.mods.explicit {
+            self.update_modifier_stats(
+                mod_info,
+                &item_attributes,
+                &stat_requirements
+            );
         }
+
+        // Update correlations between mods
+        self.update_modifier_correlations(&item.item.extended.mods.explicit);
     }
 
     fn update_modifier_stats(

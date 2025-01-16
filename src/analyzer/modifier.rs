@@ -19,13 +19,11 @@ impl ModifierAnalyzer {
     }
 
     pub fn process_item(&mut self, item: &ItemResponse) {
-        if let Some(price) = &item.listing.price {
-            // Access explicit mods through the extended.mods structure
-            if let Some(mods) = item.item.extended.mods.explicit.as_ref() {
-                for mod_info in mods {
-                    self.process_modifier(mod_info, price.amount);
-                }
-            }
+        // Price is not an Option in the listing
+        let price = &item.listing.price;
+        // The explicit mods are directly a Vec, not an Option
+        for mod_info in &item.item.extended.mods.explicit {
+            self.process_modifier(mod_info, price.amount);
         }
     }
 
