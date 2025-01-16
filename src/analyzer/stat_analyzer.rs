@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use crate::data::item_base_data_loader::BaseDataLoader;
 use serde::{Serialize, Deserialize};
-
+use serde_json::json;
 use crate::models::{
     CoreAttribute,
     StatRequirements,
@@ -10,6 +10,12 @@ use crate::models::{
     ItemResponse,
     ModInfo
 };
+
+#[derive(Debug, Hash, Eq, PartialEq)]
+pub enum StatRequirementType {
+    Single(String),
+    Dual(String, String),
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttributeCorrelation {
@@ -21,14 +27,11 @@ pub struct AttributeCorrelation {
 
 #[derive(Debug)]
 pub struct StatAnalyzer {
-    // Track which modifiers appear on items with specific attribute requirements
     modifier_attribute_occurrences: HashMap<String, HashMap<String, u32>>,
-    // Track the average attribute thresholds for each modifier
     modifier_thresholds: HashMap<String, HashMap<String, Vec<u32>>>,
-    // Track which modifiers commonly appear together on items with specific attributes
     modifier_correlations: HashMap<String, HashMap<String, u32>>,
-    // Keep track of total items processed for calculating percentages
     total_items: u32,
+    requirement_distributions: HashMap<StatRequirementType, Vec<(u32, u32)>>,
 }
 
 impl StatAnalyzer {
@@ -38,17 +41,19 @@ impl StatAnalyzer {
             modifier_thresholds: HashMap::new(),
             modifier_correlations: HashMap::new(),
             total_items: 0,
+            requirement_distributions: HashMap::new(),
         }
     }
 
     pub fn process_item(&mut self, item: &ItemResponse) {
         self.total_items += 1;
 
+        self.process_requirements(item);
+
         // Get stat requirements from the ItemResponse
         let stat_requirements = item.get_stat_requirements();
         let item_attributes: HashSet<_> = stat_requirements.keys().collect();
 
-        // The explicit mods are directly a Vec
         for mod_info in &item.item.extended.mods.explicit {
             self.update_modifier_stats(
                 mod_info,
@@ -57,8 +62,48 @@ impl StatAnalyzer {
             );
         }
 
-        // Update correlations between mods
         self.update_modifier_correlations(&item.item.extended.mods.explicit);
+    }
+
+    fn process_requirements(&mut self, item: &ItemResponse) {
+        let mut item_reqs = Vec::new();
+        
+        // Collect all attribute requirements
+        for req in &item.item.requirements {
+            match req.name.as_str() {
+                "[Dexterity|Dex]" | "[Strength|Str]" | "[Intelligence|Int]" => {
+                    if let Some(value) = req.values.first() {
+                        if let Ok(val) = value.0.parse::<u32>() {
+                            item_reqs.push((req.name.clone(), val));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        
+        // Sort requirements for consistent ordering
+        item_reqs.sort_by(|a, b| a.0.cmp(&b.0));
+
+        // Create requirement type and store values
+        match item_reqs.len() {
+            1 => {
+                let req_type = StatRequirementType::Single(item_reqs[0].0.clone());
+                self.requirement_distributions.entry(req_type)
+                    .or_insert_with(Vec::new)
+                    .push((item_reqs[0].1, 0));
+            }
+            2 => {
+                let req_type = StatRequirementType::Dual(
+                    item_reqs[0].0.clone(),
+                    item_reqs[1].0.clone()
+                );
+                self.requirement_distributions.entry(req_type)
+                    .or_insert_with(Vec::new)
+                    .push((item_reqs[0].1, item_reqs[1].1));
+            }
+            _ => {}
+        }
     }
 
     fn update_modifier_stats(
@@ -175,6 +220,38 @@ impl StatAnalyzer {
         common_pairs
     }
 
+    pub fn get_requirement_statistics(&self) -> serde_json::Value {
+        let mut stats = serde_json::json!({
+            "single_stat_counts": {},
+            "dual_stat_counts": {},
+            "average_requirements": {},
+        });
+
+        for (req_type, values) in &self.requirement_distributions {
+            match req_type {
+                StatRequirementType::Single(stat) => {
+                    let avg = values.iter()
+                        .map(|(v, _)| v)
+                        .sum::<u32>() as f64 / values.len() as f64;
+                    
+                    stats["single_stat_counts"][stat.clone()] = json!(values.len());
+                    stats["average_requirements"][stat] = json!(avg);
+                }
+                StatRequirementType::Dual(stat1, stat2) => {
+                    let key = format!("{}-{}", stat1, stat2);
+                    let avg1 = values.iter().map(|(v1, _)| v1).sum::<u32>() as f64 / values.len() as f64;
+                    let avg2 = values.iter().map(|(_, v2)| v2).sum::<u32>() as f64 / values.len() as f64;
+                    
+                    stats["dual_stat_counts"][key.clone()] = json!(values.len());
+                    stats["average_requirements"][format!("{}-1", key)] = json!(avg1);
+                    stats["average_requirements"][format!("{}-2", key)] = json!(avg2);
+                }
+            }
+        }
+
+        stats
+    }
+
     pub fn generate_attribute_report(&self) -> serde_json::Value {
         let correlations = self.analyze_attribute_correlations();
         let common_pairs = self.get_common_modifier_pairs(0.1); // 10% correlation threshold
@@ -183,6 +260,7 @@ impl StatAnalyzer {
             "total_items_analyzed": self.total_items,
             "attribute_correlations": correlations,
             "common_modifier_pairs": common_pairs,
+            "requirement_statistics": self.get_requirement_statistics(),
             "analysis_summary": {
                 "strongest_attribute": correlations.iter()
                     .max_by_key(|(_, c)| c.occurrence_count)
