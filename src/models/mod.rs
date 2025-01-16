@@ -3,6 +3,8 @@ pub mod item;
 pub mod stats;
 pub mod stats_requirements;
 pub mod poe_item;
+pub mod cleaned_item;
+pub use cleaned_item::*;
 
 // Re-export the modules to make them accessible
 pub use item_type::*;

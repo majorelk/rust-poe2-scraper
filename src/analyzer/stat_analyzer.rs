@@ -8,7 +8,8 @@ use crate::models::{
     Item,
     ItemModifier,
     ItemResponse,
-    ModInfo
+    ModInfo,
+    CleanedItem
 };
 
 #[derive(Debug, Hash, Eq, PartialEq)]
@@ -65,6 +66,27 @@ impl StatAnalyzer {
         self.update_modifier_correlations(&item.item.extended.mods.explicit);
     }
 
+    pub fn process_cleaned_item(&mut self, item: &CleanedItem) {
+        self.total_items += 1;
+
+        // Process requirements using cleaned data
+        self.process_cleaned_requirements(item);
+
+        // Get stat requirements from cleaned item
+        let stat_requirements = item.get_stat_requirements();
+        let item_attributes: HashSet<_> = stat_requirements.keys().collect();
+
+        for mod_info in &item.mod_info.explicit {
+            self.update_modifier_stats(
+                mod_info,
+                &item_attributes,
+                &stat_requirements
+            );
+        }
+
+        self.update_modifier_correlations(&item.mod_info.explicit);
+    }
+
     fn process_requirements(&mut self, item: &ItemResponse) {
         let mut item_reqs = Vec::new();
         
@@ -86,6 +108,47 @@ impl StatAnalyzer {
         item_reqs.sort_by(|a, b| a.0.cmp(&b.0));
 
         // Create requirement type and store values
+        match item_reqs.len() {
+            1 => {
+                let req_type = StatRequirementType::Single(item_reqs[0].0.clone());
+                self.requirement_distributions.entry(req_type)
+                    .or_insert_with(Vec::new)
+                    .push((item_reqs[0].1, 0));
+            }
+            2 => {
+                let req_type = StatRequirementType::Dual(
+                    item_reqs[0].0.clone(),
+                    item_reqs[1].0.clone()
+                );
+                self.requirement_distributions.entry(req_type)
+                    .or_insert_with(Vec::new)
+                    .push((item_reqs[0].1, item_reqs[1].1));
+            }
+            _ => {}
+        }
+    }
+
+    fn process_cleaned_requirements(&mut self, item: &CleanedItem) {
+        let mut item_reqs = Vec::new();
+        
+        // Collect all attribute requirements from cleaned item
+        for req in &item.requirements {
+            match req.name.as_str() {
+                "[Dexterity|Dex]" | "[Strength|Str]" | "[Intelligence|Int]" => {
+                    if let Some((value, _)) = req.values.first() {
+                        if let Ok(val) = value.parse::<u32>() {
+                            item_reqs.push((req.name.clone(), val));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        
+        // Sort requirements for consistent ordering (same as original)
+        item_reqs.sort_by(|a, b| a.0.cmp(&b.0));
+
+        // Create requirement type and store values (same logic as original)
         match item_reqs.len() {
             1 => {
                 let req_type = StatRequirementType::Single(item_reqs[0].0.clone());
@@ -314,5 +377,98 @@ mod tests {
         // Verify analysis
         let report = analyzer.generate_attribute_report();
         assert_eq!(report["total_items_analyzed"], 1);
+    }
+
+    // Add new test for cleaned item processing
+    #[test]
+    fn test_stat_analyzer_cleaned_item() {
+        let mut analyzer = StatAnalyzer::new();
+
+        // Create a cleaned item with test data
+        let cleaned_item = CleanedItem {
+            base_type: "Test Base".to_string(),
+            name: "Test Item".to_string(),
+            explicit_mods: vec![
+                "+100 to maximum Life".to_string(),
+                "+50 to Strength".to_string(),
+            ],
+            item_level: 75,
+            properties: vec![],
+            requirements: vec![
+                ItemRequirement {
+                    name: "[Strength|Str]".to_string(),
+                    values: vec![("100".to_string(), 0)],
+                    display_mode: 1,
+                }
+            ],
+            mod_info: ModInfo {
+                explicit: vec![
+                    ExplicitMod {
+                        level: 1,
+                        magnitudes: vec![
+                            Magnitude {
+                                hash: "test_hash".to_string(),
+                                max: "100".to_string(),
+                                min: "90".to_string(),
+                            }
+                        ],
+                        name: "Test Modifier".to_string(),
+                        tier: "1".to_string(),
+                    }
+                ],
+            },
+            mod_hashes: HashMap::new(),
+        };
+
+        // Process the cleaned item
+        analyzer.process_cleaned_item(&cleaned_item);
+
+        // Verify analysis
+        let report = analyzer.generate_attribute_report();
+        assert_eq!(report["total_items_analyzed"], 1);
+
+        // Check requirement processing
+        let req_stats = analyzer.get_requirement_statistics();
+        assert!(req_stats["single_stat_counts"].get("[Strength|Str]").is_some());
+    }
+
+    // Add test to compare both implementations
+    #[test]
+    fn test_compare_implementations() {
+        let mut analyzer_original = StatAnalyzer::new();
+        let mut analyzer_cleaned = StatAnalyzer::new();
+
+        // Create test data for both types
+        let item_response = create_test_item_response();
+        let cleaned_item = CleanedItem::from_response(&item_response);
+
+        // Process with both implementations
+        analyzer_original.process_item(&item_response);
+        analyzer_cleaned.process_cleaned_item(&cleaned_item);
+
+        // Compare results
+        let report_original = analyzer_original.generate_attribute_report();
+        let report_cleaned = analyzer_cleaned.generate_attribute_report();
+
+        assert_eq!(
+            report_original["total_items_analyzed"],
+            report_cleaned["total_items_analyzed"]
+        );
+        
+        // Compare requirement statistics
+        let stats_original = analyzer_original.get_requirement_statistics();
+        let stats_cleaned = analyzer_cleaned.get_requirement_statistics();
+        
+        assert_eq!(
+            stats_original["single_stat_counts"],
+            stats_cleaned["single_stat_counts"]
+        );
+    }
+
+    // Helper function to create test item response
+    fn create_test_item_response() -> ItemResponse {
+        // Create a minimal ItemResponse for testing
+        // You'll need to implement this based on your ItemResponse structure
+        todo!("Implement test ItemResponse creation")
     }
 }
