@@ -1,14 +1,14 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ItemResponse {
     pub id: String,
     pub item: ItemData,
     pub listing: ListingData,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ItemData {
     pub base_type: String,
     #[serde(rename = "explicitMods")]
@@ -23,61 +23,61 @@ pub struct ItemData {
     pub type_line: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ExtendedData {
     pub mods: ModData,
     pub hashes: HashData,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ModData {
     pub explicit: Vec<ModInfo>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ModInfo {
     pub name: String,
     pub tier: String,
     pub magnitudes: Vec<Magnitude>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Magnitude {
     pub hash: String,
     pub min: String,
     pub max: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct HashData {
     pub explicit: Vec<(String, Vec<i32>)>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Requirement {
     pub name: String,
     pub values: Vec<(String, i32)>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Property {
     pub name: String,
     pub values: Vec<(String, i32)>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ListingData {
     pub price: Price,
     pub account: Account,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Price {
     pub amount: f64,
     pub currency: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Account {
     pub name: String,
     pub realm: String,
