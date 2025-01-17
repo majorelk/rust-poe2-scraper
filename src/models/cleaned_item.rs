@@ -34,18 +34,18 @@ pub struct ModInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Magnitude {
+    pub hash: String,
+    pub max: String,
+    pub min: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExplicitMod {
     pub level: u32,
     pub magnitudes: Vec<Magnitude>,
     pub name: String,
     pub tier: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Magnitude {
-    pub hash: String,
-    pub max: String,
-    pub min: String,
 }
 
 impl CleanedItem {

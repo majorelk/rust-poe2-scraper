@@ -58,12 +58,14 @@ pub struct HashData {
 pub struct Requirement {
     pub name: String,
     pub values: Vec<(String, i32)>,
+    pub display_mode: i32,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Property {
     pub name: String,
     pub values: Vec<(String, i32)>,
+    pub display_mode: i32,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

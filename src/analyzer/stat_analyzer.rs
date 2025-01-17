@@ -21,10 +21,30 @@ pub enum StatRequirementType {
     Dual(String, String),
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ModBase {
+    pub name: String,
+    pub tier: String,
+    pub magnitudes: Vec<Magnitude>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ModInfo {
+    #[serde(flatten)]
+    pub base: ModBase,
+}
+
 pub trait ModInfoLike {
     fn get_name(&self) -> &str;
     fn get_tier(&self) -> &str;
     fn get_value(&self) -> Option<f64>;
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ExplicitMod {
+    #[serde(flatten)]
+    pub base: ModBase,
+    pub level: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,24 +64,7 @@ pub struct StatAnalyzer {
     requirement_distributions: HashMap<StatRequirementType, Vec<(u32, u32)>>,
 }
 
-impl ModInfoLike for ModInfo {
-    fn get_name(&self) -> &str {
-        &self.name
-    }
-
-    fn get_tier(&self) -> &str {
-        match &self.tier {
-            Some(t) => t,
-            None => "Unknown"
-        }
-    }
-
-    fn get_value(&self) -> Option<f64> {
-        self.magnitudes.first().and_then(|m| m.min.parse().ok())
-    }
-}
-
-impl ModInfoLike for ExplicitMod {
+impl ModInfoLike for ModBase {
     fn get_name(&self) -> &str {
         &self.name
     }
@@ -71,7 +74,23 @@ impl ModInfoLike for ExplicitMod {
     }
 
     fn get_value(&self) -> Option<f64> {
-        self.value.parse().ok()
+        self.magnitudes.first().and_then(|m| m.min.parse().ok())
+    }
+}
+
+impl Deref for ModInfo {
+    type Target = ModBase;
+
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
+}
+
+impl Deref for ExplicitMod {
+    type Target = ModBase;
+
+    fn deref(&self) -> &Self::Target {
+        &self.base
     }
 }
 
