@@ -1,5 +1,26 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::ops::Deref;
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ModBase {
+    pub name: String,
+    pub tier: String,
+    pub magnitudes: Vec<Magnitude>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ModInfo {
+    #[serde(flatten)]
+    base: ModBase,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ExplicitMod {
+    #[serde(flatten)]
+    base: ModBase,
+    pub level: u32,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ItemResponse {
@@ -33,13 +54,6 @@ pub struct ExtendedData {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ModData {
     pub explicit: Vec<ModInfo>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct ModInfo {
-    pub name: String,
-    pub tier: String,
-    pub magnitudes: Vec<Magnitude>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -84,6 +98,22 @@ pub struct Price {
 pub struct Account {
     pub name: String,
     pub realm: String,
+}
+
+impl Deref for ModInfo {
+    type Target = ModBase;
+    
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
+}
+
+impl Deref for ExplicitMod {
+    type Target = ModBase;
+    
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
 }
 
 impl ItemResponse {

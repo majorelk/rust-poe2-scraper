@@ -1,17 +1,26 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use super::ItemResponse;
+use super::poe_item::{Magnitude, ModInfo as PoeModInfo};
+use crate::models::poe_item::ModBase;
+use std::ops::Deref;
+use crate::analyzer::stat_analyzer::ModInfoLike;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CleanedItem {
-    pub base_type: String,
-    pub name: String,
-    pub explicit_mods: Vec<String>,
-    pub item_level: u32,
-    pub properties: Vec<ItemProperty>,
-    pub requirements: Vec<ItemRequirement>,
-    pub mod_info: ModInfo,
-    pub mod_hashes: HashMap<String, Vec<Vec<i32>>>,
+    // Core item information
+    pub base_type: String,      // from baseType
+    pub name: String,           // from name
+    pub explicit_mods: Vec<String>,  // from explicitMods
+    pub item_level: u32,        // from ilvl
+    
+    // Item attributes
+    pub properties: Vec<ItemProperty>,    // from properties
+    pub requirements: Vec<ItemRequirement>,  // from requirements
+    
+    // Mod information
+    pub mod_info: ModInfo,      // structured mod data from extended.mods
+    pub mod_hashes: HashMap<String, Vec<Vec<i32>>>,  // from extended.hashes
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -30,22 +39,25 @@ pub struct ItemRequirement {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ModInfo {
-    pub explicit: Vec<ExplicitMod>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Magnitude {
-    pub hash: String,
-    pub max: String,
-    pub min: String,
+    pub explicit: Vec<ExplicitMod>,  // Collection of explicit mods
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExplicitMod {
+    #[serde(flatten)]
+    base: ModBase,
     pub level: u32,
-    pub magnitudes: Vec<Magnitude>,
-    pub name: String,
-    pub tier: String,
+    // pub magnitudes: Vec<Magnitude>,  // Each mod can have multiple magnitude entries
+    // pub name: String,
+    // pub tier: String,
+}
+
+impl Deref for ExplicitMod {
+    type Target = ModBase;
+    
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
 }
 
 impl CleanedItem {
@@ -55,6 +67,8 @@ impl CleanedItem {
             name: response.item.type_line.clone(),
             explicit_mods: response.item.explicit_mods.clone(),
             item_level: response.item.ilvl,
+            
+            // Map properties maintaining their structure
             properties: response.item.properties.iter()
                 .map(|p| ItemProperty {
                     name: p.name.clone(),
@@ -62,6 +76,8 @@ impl CleanedItem {
                     display_mode: p.display_mode,
                 })
                 .collect(),
+            
+            // Map requirements maintaining their structure
             requirements: response.item.requirements.iter()
                 .map(|r| ItemRequirement {
                     name: r.name.clone(),
@@ -69,16 +85,24 @@ impl CleanedItem {
                     display_mode: r.display_mode,
                 })
                 .collect(),
+            
+            // Map the explicit mods data
             mod_info: ModInfo {
                 explicit: response.item.extended.mods.explicit.iter()
                     .map(|m| ExplicitMod {
-                        level: m.magnitudes.first().map(|mag| mag.min.parse::<u32>().unwrap_or(0)).unwrap_or(0),
-                        magnitudes: m.magnitudes.clone(),
-                        name: m.name.clone(),
-                        tier: m.tier.clone(),
+                        base: ModBase {
+                            name: m.name.clone(),
+                            tier: m.tier.clone(),
+                            magnitudes: m.magnitudes.clone(),
+                        },
+                        level: m.magnitudes.first()
+                            .map(|mag| mag.min.parse::<u32>().unwrap_or(0))
+                            .unwrap_or(0),
                     })
                     .collect(),
             },
+            
+            // Map the hash data structure
             mod_hashes: response.item.extended.hashes.explicit.iter()
                 .map(|(k, v)| (k.clone(), vec![v.clone()]))
                 .collect(),
@@ -101,7 +125,7 @@ impl CleanedItem {
 
     pub fn get_explicit_mods(&self) -> Vec<(&str, &str)> {
         self.mod_info.explicit.iter()
-            .map(|m| (m.name.as_str(), m.tier.as_str()))
+            .map(|m| (m.get_name(), m.get_tier()))
             .collect()
     }
 }

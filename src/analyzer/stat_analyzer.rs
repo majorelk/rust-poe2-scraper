@@ -3,17 +3,19 @@ use crate::data::item_base_data_loader::BaseDataLoader;
 use serde::{Serialize, Deserialize};
 use serde_json::json;
 use crate::models::{
+    ModInfo,
+    ExplicitMod,
     CoreAttribute,
     StatRequirements,
     Item,
     ItemModifier,
     ItemResponse,
-    ModInfo,
     CleanedItem,
-    ExplicitMod,
     Magnitude,
     ItemRequirement
 };
+use crate::models::poe_item::ModBase;
+use std::ops::Deref;
 
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub enum StatRequirementType {
@@ -21,30 +23,10 @@ pub enum StatRequirementType {
     Dual(String, String),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ModBase {
-    pub name: String,
-    pub tier: String,
-    pub magnitudes: Vec<Magnitude>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ModInfo {
-    #[serde(flatten)]
-    pub base: ModBase,
-}
-
 pub trait ModInfoLike {
     fn get_name(&self) -> &str;
     fn get_tier(&self) -> &str;
     fn get_value(&self) -> Option<f64>;
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ExplicitMod {
-    #[serde(flatten)]
-    pub base: ModBase,
-    pub level: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,22 +60,6 @@ impl ModInfoLike for ModBase {
     }
 }
 
-impl Deref for ModInfo {
-    type Target = ModBase;
-
-    fn deref(&self) -> &Self::Target {
-        &self.base
-    }
-}
-
-impl Deref for ExplicitMod {
-    type Target = ModBase;
-
-    fn deref(&self) -> &Self::Target {
-        &self.base
-    }
-}
-
 impl StatAnalyzer {
     pub fn new() -> Self {
         Self {
@@ -116,18 +82,23 @@ impl StatAnalyzer {
 
         for mod_info in &item.item.extended.mods.explicit {
             self.update_modifier_stats(
-                mod_info,
+                mod_info.deref(),
                 &item_attributes,
                 &stat_requirements
             );
         }
 
-        self.update_modifier_correlations(&item.item.extended.mods.explicit);
+        self.update_modifier_correlations(
+            &item.item.extended.mods.explicit
+                .iter()
+                .map(|m| m.deref())
+                .collect::<Vec<_>>()
+        );
     }
 
-    fn update_modifier_stats<T: ModInfoLike>(
+    fn update_modifier_stats(
         &mut self,
-        mod_info: &T,
+        mod_info: &ModBase,  
         item_attributes: &HashSet<&String>,
         stat_requirements: &HashMap<String, u32>
     ) {
@@ -151,7 +122,7 @@ impl StatAnalyzer {
         }
     }
     
-    fn update_modifier_correlations<T: ModInfoLike>(&mut self, mods: &[T]) {
+    fn update_modifier_correlations(&mut self, mods: &[&ModBase]) {
         for (i, mod1) in mods.iter().enumerate() {
             for mod2 in mods.iter().skip(i + 1) {
                 let correlations = self.modifier_correlations
@@ -181,13 +152,17 @@ impl StatAnalyzer {
 
         for mod_info in &item.mod_info.explicit {
             self.update_modifier_stats(
-                mod_info,
+                mod_info.deref(),
                 &item_attributes,
                 &stat_requirements
             );
         }
 
-        self.update_modifier_correlations(&item.mod_info.explicit);
+        let mod_refs: Vec<&ModBase> = item.mod_info.explicit
+        .iter()
+        .map(|m| m.deref())
+        .collect();
+    self.update_modifier_correlations(&mod_refs);
     }
 
     fn process_requirements(&mut self, item: &ItemResponse) {

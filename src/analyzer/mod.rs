@@ -1,5 +1,5 @@
 mod modifier;
-mod stat_analyzer;
+pub mod stat_analyzer;
 mod stat_collection;
 
 pub use modifier::ModifierAnalyzer;
