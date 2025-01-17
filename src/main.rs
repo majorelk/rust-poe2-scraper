@@ -23,14 +23,12 @@ use crate::fetcher::{
     TradeStatus,
 };
 
-// These are your top-level modules
 mod analyzer;
 mod fetcher;
 mod models;
 mod errors;
 mod data;
 
-// We can define the initialize_base_loader function here for now
 async fn initialize_base_loader() -> Result<BaseDataLoader> {
     let mut loader = BaseDataLoader::new();
 
@@ -128,15 +126,9 @@ fn main() -> Result<()> {
         
         for raw_item in raw_items {
             if let Ok(item) = serde_json::from_value::<ItemResponse>(raw_item) {
-                // Note: We don't need to make item mutable anymore because we're not modifying it
                 
                 // For debugging/logging
                 println!("Processing {} - {}", item.item.base_type, item.item.type_line);
-                
-                // We can still use base_type information if needed, but the API already gives us requirements
-                // if let Some(base_type) = base_loader.get_base(&item.item.base_type) {
-                //     // Do something with base_type if needed
-                // }
                 
                 modifier_analyzer.process_item(&item);
                 if args.analyze_stats {

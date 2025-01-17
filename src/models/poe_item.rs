@@ -8,7 +8,7 @@ pub struct ItemResponse {
     pub listing: ListingData,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ItemData {
     pub base_type: String,
     #[serde(rename = "explicitMods")]
@@ -21,45 +21,46 @@ pub struct ItemData {
     pub rarity: String,
     #[serde(rename = "typeLine")]
     pub type_line: String,
+    pub ilvl: u32,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ExtendedData {
     pub mods: ModData,
     pub hashes: HashData,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ModData {
     pub explicit: Vec<ModInfo>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ModInfo {
     pub name: String,
     pub tier: String,
     pub magnitudes: Vec<Magnitude>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Magnitude {
     pub hash: String,
     pub min: String,
     pub max: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct HashData {
     pub explicit: Vec<(String, Vec<i32>)>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Requirement {
     pub name: String,
     pub values: Vec<(String, i32)>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Property {
     pub name: String,
     pub values: Vec<(String, i32)>,

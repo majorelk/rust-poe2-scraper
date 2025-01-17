@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use super::ItemResponse;  // To convert from ItemResponse
+use super::ItemResponse;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CleanedItem {
     pub base_type: String,
     pub name: String,
@@ -14,26 +14,26 @@ pub struct CleanedItem {
     pub mod_hashes: HashMap<String, Vec<Vec<i32>>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ItemProperty {
     pub name: String,
     pub values: Vec<(String, i32)>,
     pub display_mode: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ItemRequirement {
     pub name: String,
     pub values: Vec<(String, i32)>,
     pub display_mode: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ModInfo {
     pub explicit: Vec<ExplicitMod>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExplicitMod {
     pub level: u32,
     pub magnitudes: Vec<Magnitude>,
@@ -41,7 +41,7 @@ pub struct ExplicitMod {
     pub tier: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Magnitude {
     pub hash: String,
     pub max: String,
@@ -52,7 +52,7 @@ impl CleanedItem {
     pub fn from_response(response: &ItemResponse) -> Self {
         Self {
             base_type: response.item.base_type.clone(),
-            name: response.item.name.clone(),
+            name: response.item.type_line.clone(),
             explicit_mods: response.item.explicit_mods.clone(),
             item_level: response.item.ilvl,
             properties: response.item.properties.iter()
@@ -70,15 +70,20 @@ impl CleanedItem {
                 })
                 .collect(),
             mod_info: ModInfo {
-                explicit: response.item.extended.mods.explicit.clone(),
+                explicit: response.item.extended.mods.explicit.iter()
+                    .map(|m| ExplicitMod {
+                        name: m.name.clone(),
+                        tier: m.tier.clone(),
+                        value: m.value.clone(),
+                    })
+                    .collect(),
             },
-            mod_hashes: response.item.extended.hashes.explicit.clone()
-                .into_iter()
+            mod_hashes: response.item.extended.hashes.explicit.iter()
+                .map(|(k, v)| (k.clone(), vec![v.clone()]))
                 .collect(),
         }
     }
 
-    // Helper methods to access cleaned data
     pub fn get_stat_requirements(&self) -> HashMap<String, u32> {
         self.requirements.iter()
             .filter(|req| {

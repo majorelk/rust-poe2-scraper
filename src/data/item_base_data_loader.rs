@@ -168,7 +168,6 @@ impl BaseDataLoader {
     }
 }
 
-// Example usage in your main.rs:
 pub async fn initialize_base_loader() -> Result<BaseDataLoader> {
     let mut loader = BaseDataLoader::new();
 
