@@ -1,3 +1,4 @@
 /target
 output.txt
 src/data/raw_data_structure.json
+src/data/example_query.json
