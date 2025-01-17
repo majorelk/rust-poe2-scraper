@@ -72,9 +72,10 @@ impl CleanedItem {
             mod_info: ModInfo {
                 explicit: response.item.extended.mods.explicit.iter()
                     .map(|m| ExplicitMod {
+                        level: m.magnitudes.first().map(|mag| mag.min.parse::<u32>().unwrap_or(0)).unwrap_or(0),
+                        magnitudes: m.magnitudes.clone(),
                         name: m.name.clone(),
                         tier: m.tier.clone(),
-                        value: m.value.clone(),
                     })
                     .collect(),
             },
