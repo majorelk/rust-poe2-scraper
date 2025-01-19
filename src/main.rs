@@ -92,7 +92,7 @@ fn main() -> Result<()> {
             
             // Additionally save to database
             for item in &items {
-                if let Err(e) = db.store_collected_item(item).await {
+                if let Err(e) = db.store_collected_item(&item).await {
                     eprintln!("Warning: Failed to store item in database: {}", e);
                     // Continue processing even if database storage fails
                 }
@@ -160,10 +160,10 @@ fn main() -> Result<()> {
                     eprintln!("Warning: Failed to store processed item: {}", e);
                 }
                 
-                modifier_analyzer.process_item(&ItemResponse::from(item.clone()));
-                if args.analyze_stats {
-                    stat_analyzer.process_item(&ItemResponse::from(item.clone()));
-                }
+                // modifier_analyzer.process_item(&ItemResponse::from(item.clone()));
+                // if args.analyze_stats {
+                //     stat_analyzer.process_item(&ItemResponse::from(item.clone()));
+                // }
             }
         }
 
