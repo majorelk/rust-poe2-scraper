@@ -107,10 +107,8 @@ impl Item {
 impl From<ItemResponse> for Item {
     fn from(response: ItemResponse) -> Self {
         let item_type = ItemType::new(
-            // may need logic to determine category from response.item.base_type
-            ItemCategory::Other, 
+            ItemCategory::Other,  // may need logic to determine category
             response.item.base_type,
-            // Convert rarity string to ItemRarity enum
             match response.item.rarity.as_str() {
                 "Unique" => ItemRarity::Unique,
                 "Rare" => ItemRarity::Rare,
@@ -128,9 +126,9 @@ impl From<ItemResponse> for Item {
                 values: mod_info.magnitudes.iter()
                     .map(|m| m.min.parse().unwrap_or(0.0))
                     .collect(),
-                is_crafted: false, // may need logic to determine this
-                stat_requirements: None, // This might need to be populated based on mod data
-                attribute_scaling: None, // This might need to be populated based on mod data
+                is_crafted: false,
+                stat_requirements: None,
+                attribute_scaling: None,
             })
             .collect();
 
@@ -152,9 +150,8 @@ impl From<ItemResponse> for Item {
             })
             .collect();
 
-        // Create stat requirements from the same requirements data
         let mut stat_requirements = StatRequirements::new();
-        for (attr, value) in &attribute_values {
+        for (attr, value): (&CoreAttribute, &u32) in &attribute_values {
             stat_requirements.add_requirement(attr.clone(), *value);
         }
 
@@ -167,8 +164,8 @@ impl From<ItemResponse> for Item {
                 amount: response.listing.price.amount,
                 currency: response.listing.price.currency,
             }),
-            stats: HashMap::new(), // do we populate this from properties or other data?
-            corrupted: false, // unsure where to find this in the repsponse?
+            stats: HashMap::new(),
+            corrupted: false,  // TODO: Find this in response
             stat_requirements,
             attribute_values,
         }

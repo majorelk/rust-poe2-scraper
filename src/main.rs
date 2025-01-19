@@ -92,7 +92,7 @@ fn main() -> Result<()> {
             
             // Additionally save to database
             for item in &items {
-                if let Err(e) = db.store_collected_item(&item).await {
+                if let Err(e) = db.store_collected_item(&Item::from((*item).clone())).await {
                     eprintln!("Warning: Failed to store item in database: {}", e);
                     // Continue processing even if database storage fails
                 }

@@ -53,18 +53,30 @@ impl From<sqlx::Error> for ScraperError {
     fn from(err: sqlx::Error) -> Self {
         match err {
             sqlx::Error::Database(db_err) => {
+                // Handle specific database errors like constraint violations
                 ScraperError::DatabaseError(format!("Database error: {}", db_err))
             }
             sqlx::Error::RowNotFound => {
                 ScraperError::DatabaseError("Requested data not found".to_string())
             }
-            sqlx::Error::Protocol(msg) => {
-                ScraperError::DatabaseError(format!("Database protocol error: {}", msg))
+            sqlx::Error::ColumnNotFound(col_name) => {
+                ScraperError::DatabaseError(format!("Column not found: {}", col_name))
             }
-            sqlx::Error::Io(io_err) => {
-                ScraperError::IoError(io_err.to_string())
+            sqlx::Error::ColumnDecode { index, source } => {
+                ScraperError::DatabaseError(
+                    format!("Failed to decode column {}: {}", index, source)
+                )
             }
-            _ => ScraperError::DatabaseError(err.to_string()),
+            sqlx::Error::Decode(desc) => {
+                ScraperError::DatabaseError(format!("Decode error: {}", desc))
+            }
+            sqlx::Error::PoolTimedOut => {
+                ScraperError::DatabaseError("Database connection pool timeout".to_string())
+            }
+            sqlx::Error::WorkerCrashed => {
+                ScraperError::DatabaseError("Database worker thread crashed".to_string())
+            }
+            _ => ScraperError::DatabaseError(format!("Other database error: {}", err)),
         }
     }
 }
@@ -73,12 +85,20 @@ impl From<MigrateError> for ScraperError {
     fn from(err: MigrateError) -> Self {
         match err {
             MigrateError::Source(source_err) => {
+                // Handle errors that occurred during migration execution
                 ScraperError::MigrationError(format!("Migration source error: {}", source_err))
             }
-            MigrateError::VersionMismatch => {
-                ScraperError::MigrationError("Migration version mismatch".to_string())
+            MigrateError::VersionMismatch(version) => {
+                // Handle version mismatch with the single version number provided
+                ScraperError::MigrationError(format!("Migration version mismatch at version {}", version))
             }
-            _ => ScraperError::MigrationError(format!("Migration failed: {}", err)),
+            MigrateError::Dirty(version) => {
+                // Handle cases where a migration failed and left the database in a "dirty" state
+                ScraperError::MigrationError(
+                    format!("Database left in dirty state at version {}", version)
+                )
+            }
+            _ => ScraperError::MigrationError(format!("Other migration error: {}", err)),
         }
     }
 }
