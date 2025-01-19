@@ -40,6 +40,10 @@ impl BaseDataLoader {
         }
     }
 
+    pub fn get_all_bases(&self) -> impl Iterator<Item = &ItemBaseType> {
+        self.base_cache.values()
+    }
+
     // Load base items from a JSON file (for initial/fallback data)
     pub async fn load_from_file(&mut self, path: &str) -> Result<()> {
         let content = tokio::fs::read_to_string(path).await?;

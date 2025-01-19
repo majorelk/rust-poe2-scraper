@@ -53,6 +53,22 @@ impl ItemType {
     }
 }
 
+impl std::fmt::Display for ItemCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ItemCategory::Weapon => write!(f, "Weapon"),
+            ItemCategory::Armour => write!(f, "Armour"),
+            ItemCategory::Accessory => write!(f, "Accessory"),
+            ItemCategory::Flask => write!(f, "Flask"),
+            ItemCategory::Gem => write!(f, "Gem"),
+            ItemCategory::Currency => write!(f, "Currency"),
+            ItemCategory::DivinationCard => write!(f, "DivinationCard"),
+            ItemCategory::Map => write!(f, "Map"),
+            ItemCategory::Other => write!(f, "Other"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

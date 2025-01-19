@@ -6,6 +6,8 @@ use super::stats_requirements::{
     StatRequirements,
     ModifierStatRequirements,
 };
+use crate::models::ItemResponse;
+use crate::ItemCategory;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ItemModifier {
@@ -99,6 +101,77 @@ impl Item {
         }
         
         scaled_values
+    }
+}
+
+impl From<ItemResponse> for Item {
+    fn from(response: ItemResponse) -> Self {
+        let item_type = ItemType::new(
+            // may need logic to determine category from response.item.base_type
+            ItemCategory::Other, 
+            response.item.base_type,
+            // Convert rarity string to ItemRarity enum
+            match response.item.rarity.as_str() {
+                "Unique" => ItemRarity::Unique,
+                "Rare" => ItemRarity::Rare,
+                "Magic" => ItemRarity::Magic,
+                _ => ItemRarity::Normal,
+            }
+        );
+
+        // Convert explicit mods to ItemModifier structs
+        let modifiers = response.item.explicit_mods.iter()
+            .zip(response.item.extended.mods.explicit.iter())
+            .map(|(text, mod_info)| ItemModifier {
+                name: text.clone(),
+                tier: mod_info.tier.parse().ok(),
+                values: mod_info.magnitudes.iter()
+                    .map(|m| m.min.parse().unwrap_or(0.0))
+                    .collect(),
+                is_crafted: false, // may need logic to determine this
+                stat_requirements: None, // This might need to be populated based on mod data
+                attribute_scaling: None, // This might need to be populated based on mod data
+            })
+            .collect();
+
+        // Convert requirements to attribute values
+        let attribute_values = response.item.requirements.iter()
+            .filter_map(|req| {
+                let attr = match req.name.as_str() {
+                    "Str" | "Strength" => Some(CoreAttribute::Strength),
+                    "Dex" | "Dexterity" => Some(CoreAttribute::Dexterity),
+                    "Int" | "Intelligence" => Some(CoreAttribute::Intelligence),
+                    _ => None
+                };
+                
+                attr.and_then(|a| {
+                    req.values.first().map(|(val, _)| {
+                        (a, val.parse::<u32>().unwrap_or(0))
+                    })
+                })
+            })
+            .collect();
+
+        // Create stat requirements from the same requirements data
+        let mut stat_requirements = StatRequirements::new();
+        for (attr, value) in &attribute_values {
+            stat_requirements.add_requirement(attr.clone(), *value);
+        }
+
+        Item {
+            id: response.id,
+            item_type,
+            name: Some(response.item.type_line),
+            modifiers,
+            price: Some(ItemPrice {
+                amount: response.listing.price.amount,
+                currency: response.listing.price.currency,
+            }),
+            stats: HashMap::new(), // do we populate this from properties or other data?
+            corrupted: false, // unsure where to find this in the repsponse?
+            stat_requirements,
+            attribute_values,
+        }
     }
 }
 

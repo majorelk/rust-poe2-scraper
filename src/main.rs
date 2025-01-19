@@ -4,9 +4,10 @@ use serde_json;
 
 use crate::{
     analyzer::{ModifierAnalyzer, StatAnalyzer, StatCollector},
-    models::{Item, ItemModifier, ItemResponse},
+    models::{Item, ItemModifier, ItemCategory, ItemResponse},
     errors::{ScraperError, Result},
     data::item_base_data_loader::BaseDataLoader,
+    storage::Database,
 };
 use crate::fetcher::{
     TradeApiClient,
@@ -23,12 +24,15 @@ use crate::fetcher::{
     TradeStatus,
 };
 
+// These are your top-level modules
 mod analyzer;
 mod fetcher;
 mod models;
 mod errors;
 mod data;
+mod storage;
 
+// We can define the initialize_base_loader function here for now
 async fn initialize_base_loader() -> Result<BaseDataLoader> {
     let mut loader = BaseDataLoader::new();
 
@@ -72,14 +76,27 @@ fn main() -> Result<()> {
     tokio::runtime::Runtime::new()?.block_on(async {
         let args = Args::parse();
     
+        // Initialize database first
+        let db = Database::initialize().await?;
+        
         if args.collect_data {
             println!("Starting data collection...");
-
             let client = TradeApiClient::new(args.league.clone());
             let mut collector = StatCollector::new(client);
             
+            // Collect items and store them in both database and file
             let items = collector.collect_stat_data().await?;
+            
+            // Save to file (maintaining existing behavior)
             collector.save_collected_data(&items, "collected_data.json").await?;
+            
+            // Additionally save to database
+            for item in &items {
+                if let Err(e) = db.store_collected_item(item).await {
+                    eprintln!("Warning: Failed to store item in database: {}", e);
+                    // Continue processing even if database storage fails
+                }
+            }
             
             println!("Collected {} items", items.len());
         }
@@ -89,7 +106,13 @@ fn main() -> Result<()> {
         println!("Base item cache statistics:");
         println!("{}", serde_json::to_string_pretty(&base_loader.get_cache_stats())?);
         
-        // Now we can use the original args.league since we cloned it earlier
+        // Store base items in database while keeping file-based cache
+        for base_item in base_loader.get_all_bases() {
+            if let Err(e) = db.store_base_item(base_item).await {
+                eprintln!("Warning: Failed to store base item in database: {}", e);
+            }
+        }
+
         let mut client = TradeApiClient::new(args.league);
         let mut modifier_analyzer = ModifierAnalyzer::new(vec![
             0.0, 10.0, 20.0, 30.0, 40.0, 50.0
@@ -125,14 +148,21 @@ fn main() -> Result<()> {
         let raw_items = client.fetch_items(search_response.get_result_ids()).await?;
         
         for raw_item in raw_items {
-            if let Ok(item) = serde_json::from_value::<ItemResponse>(raw_item) {
+            if let Ok(mut item) = serde_json::from_value::<Item>(raw_item) {
+                // Look up base type information
+                if let Some(base_type) = base_loader.get_base(&item.item_type.base_type) {
+                    // Update item with base requirements
+                    item.stat_requirements = base_type.stat_requirements.clone();
+                }
                 
-                // For debugging/logging
-                println!("Processing {} - {}", item.item.base_type, item.item.type_line);
+                // Store the processed item in the database
+                if let Err(e) = db.store_collected_item(&item).await {
+                    eprintln!("Warning: Failed to store processed item: {}", e);
+                }
                 
-                modifier_analyzer.process_item(&item);
+                modifier_analyzer.process_item(&ItemResponse::from(item.clone()));
                 if args.analyze_stats {
-                    stat_analyzer.process_item(&item);
+                    stat_analyzer.process_item(&ItemResponse::from(item.clone()));
                 }
             }
         }
@@ -140,8 +170,15 @@ fn main() -> Result<()> {
         // Generate and save analysis reports
         if args.analyze_stats {
             let stat_report = stat_analyzer.generate_attribute_report();
+            
+            // Save to both console and database
             println!("Stat Analysis Report:");
             println!("{}", serde_json::to_string_pretty(&stat_report)?);
+            
+            // TODO add a new table and method for storing analysis results
+            // if let Err(e) = db.store_analysis_result(&stat_report).await {
+            //     eprintln!("Warning: Failed to store analysis results: {}", e);
+            // }
         }
 
         println!("Analysis complete!");
