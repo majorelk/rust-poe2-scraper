@@ -22,14 +22,14 @@ pub struct ExplicitMod {
     pub level: u32,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ItemResponse {
     pub id: String,
     pub item: ItemData,
     pub listing: ListingData,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ItemData {
     pub base_type: String,
     #[serde(rename = "explicitMods")]
@@ -82,19 +82,19 @@ pub struct Property {
     pub display_mode: i32,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ListingData {
     pub price: Price,
     pub account: Account,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Price {
     pub amount: f64,
     pub currency: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Account {
     pub name: String,
     pub realm: String,

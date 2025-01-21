@@ -6,8 +6,9 @@ use super::stats_requirements::{
     StatRequirements,
     ModifierStatRequirements,
 };
-use crate::models::ItemResponse;
+use super::poe_item::ItemResponse;
 use crate::ItemCategory;
+use crate::errors::{ScraperError, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ItemModifier {
@@ -104,10 +105,12 @@ impl Item {
     }
 }
 
-impl From<ItemResponse> for Item {
-    fn from(response: ItemResponse) -> Self {
+impl TryFrom<ItemResponse> for Item {
+    type Error = ScraperError;
+
+    fn try_from(response: ItemResponse) -> Result<Self> {
         let item_type = ItemType::new(
-            ItemCategory::Other,  // may need logic to determine category
+            ItemCategory::Other,
             response.item.base_type,
             match response.item.rarity.as_str() {
                 "Unique" => ItemRarity::Unique,
@@ -117,45 +120,52 @@ impl From<ItemResponse> for Item {
             }
         );
 
-        // Convert explicit mods to ItemModifier structs
+        // Convert explicit mods with error handling
         let modifiers = response.item.explicit_mods.iter()
             .zip(response.item.extended.mods.explicit.iter())
-            .map(|(text, mod_info)| ItemModifier {
-                name: text.clone(),
-                tier: mod_info.tier.parse().ok(),
-                values: mod_info.magnitudes.iter()
-                    .map(|m| m.min.parse().unwrap_or(0.0))
-                    .collect(),
-                is_crafted: false,
-                stat_requirements: None,
-                attribute_scaling: None,
-            })
-            .collect();
+            .map(|(text, mod_info)| {
+                let values = mod_info.magnitudes.iter()
+                    .map(|m| m.min.parse::<f64>())
+                    .collect::<std::result::Result<Vec<_>, _>>()
+                    .map_err(|e| ScraperError::ConversionError(
+                        format!("Failed to parse modifier value: {}", e)
+                    ))?;
 
-        // Convert requirements to attribute values
-        let attribute_values = response.item.requirements.iter()
-            .filter_map(|req| {
-                let attr = match req.name.as_str() {
-                    "Str" | "Strength" => Some(CoreAttribute::Strength),
-                    "Dex" | "Dexterity" => Some(CoreAttribute::Dexterity),
-                    "Int" | "Intelligence" => Some(CoreAttribute::Intelligence),
-                    _ => None
-                };
-                
-                attr.and_then(|a| {
-                    req.values.first().map(|(val, _)| {
-                        (a, val.parse::<u32>().unwrap_or(0))
-                    })
+                Ok(ItemModifier {
+                    name: text.clone(),
+                    tier: mod_info.tier.parse().ok(),
+                    values,
+                    is_crafted: false,
+                    stat_requirements: None,
+                    attribute_scaling: None,
                 })
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
 
+        // Process requirements with error handling
+        let mut attribute_values = HashMap::new();
         let mut stat_requirements = StatRequirements::new();
-        for (attr, value): (&CoreAttribute, &u32) in &attribute_values {
-            stat_requirements.add_requirement(attr.clone(), *value);
+
+        for req in &response.item.requirements {
+            if let Some(attr) = match req.name.as_str() {
+                "Str" | "Strength" => Some(CoreAttribute::Strength),
+                "Dex" | "Dexterity" => Some(CoreAttribute::Dexterity),
+                "Int" | "Intelligence" => Some(CoreAttribute::Intelligence),
+                _ => None
+            } {
+                if let Some((val_str, _)) = req.values.first() {
+                    let value = val_str.parse::<u32>()
+                        .map_err(|e| ScraperError::ConversionError(
+                            format!("Failed to parse attribute value: {}", e)
+                        ))?;
+                    
+                    attribute_values.insert(attr.clone(), value);
+                    stat_requirements.add_requirement(attr, value);
+                }
+            }
         }
 
-        Item {
+        Ok(Item {
             id: response.id,
             item_type,
             name: Some(response.item.type_line),
@@ -165,10 +175,10 @@ impl From<ItemResponse> for Item {
                 currency: response.listing.price.currency,
             }),
             stats: HashMap::new(),
-            corrupted: false,  // TODO: Find this in response
+            corrupted: false,
             stat_requirements,
             attribute_values,
-        }
+        })
     }
 }
 

@@ -12,6 +12,7 @@ pub enum ScraperError {
     IoError(String),
     DatabaseError(String),
     MigrationError(String),
+    ConversionError(String),
 }
 
 impl fmt::Display for ScraperError {
@@ -25,6 +26,7 @@ impl fmt::Display for ScraperError {
             ScraperError::IoError(msg) => write!(f, "IO Error: {}", msg),
             ScraperError::DatabaseError(msg) => write!(f, "Database Error: {}", msg),
             ScraperError::MigrationError(msg) => write!(f, "Migration Error: {}", msg),
+            ScraperError::ConversionError(msg) => write!(f, "Conversion Error: {}", msg),
         }
     }
 }

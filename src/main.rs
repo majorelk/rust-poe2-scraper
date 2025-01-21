@@ -24,34 +24,13 @@ use crate::fetcher::{
     TradeStatus,
 };
 
-// These are your top-level modules
+// These are the top-level modules
 mod analyzer;
 mod fetcher;
 mod models;
 mod errors;
 mod data;
 mod storage;
-
-// We can define the initialize_base_loader function here for now
-async fn initialize_base_loader() -> Result<BaseDataLoader> {
-    let mut loader = BaseDataLoader::new();
-
-    // Try to load initial data from file
-    if loader.load_from_file("data/item_bases.json").await.is_err() {
-        // If file doesn't exist or is invalid, update from API
-        loader.update_from_api("https://api.pathofexile.com/trade/data/items").await?;
-        // Save the fresh data
-        loader.save_to_file("data/item_bases.json").await?;
-    }
-
-    // Check if data needs updating
-    if loader.needs_update(std::time::Duration::from_secs(86400)) {  // 24 hours
-        loader.update_from_api("https://api.pathofexile.com/trade/data/items").await?;
-        loader.save_to_file("data/item_bases.json").await?;
-    }
-
-    Ok(loader)
-}
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
@@ -72,6 +51,26 @@ struct Args {
     collect_data: bool,
 }
 
+async fn initialize_base_loader() -> Result<BaseDataLoader> {
+    let mut loader = BaseDataLoader::new();
+
+    // Try to load initial data from file
+    if loader.load_from_file("data/item_bases.json").await.is_err() {
+        // If file doesn't exist or is invalid, update from API
+        loader.update_from_api("https://api.pathofexile.com/trade/data/items").await?;
+        // Save the fresh data
+        loader.save_to_file("data/item_bases.json").await?;
+    }
+
+    // Check if data needs updating
+    if loader.needs_update(std::time::Duration::from_secs(86400)) {  // 24 hours
+        loader.update_from_api("https://api.pathofexile.com/trade/data/items").await?;
+        loader.save_to_file("data/item_bases.json").await?;
+    }
+
+    Ok(loader)
+}
+
 fn main() -> Result<()> {
     tokio::runtime::Runtime::new()?.block_on(async {
         let args = Args::parse();
@@ -87,18 +86,24 @@ fn main() -> Result<()> {
             // Collect items and store them in both database and file
             let items = collector.collect_stat_data().await?;
             
-            // Save to file (maintaining existing behavior)
+            // Save to file
             collector.save_collected_data(&items, "collected_data.json").await?;
             
-            // Additionally save to database
-            for item in &items {
-                if let Err(e) = db.store_collected_item(&Item::from((*item).clone())).await {
-                    eprintln!("Warning: Failed to store item in database: {}", e);
-                    // Continue processing even if database storage fails
+            // Convert and store items in database
+            for item_response in items {
+                match Item::try_from(item_response) {
+                    Ok(item) => {
+                        if let Err(e) = db.store_collected_item(&item).await {
+                            eprintln!("Warning: Failed to store item in database: {}", e);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: Failed to convert item: {}", e);
+                    }
                 }
             }
-            
-            println!("Collected {} items", items.len());
+        } else {
+            println!("Skipping data collection...");
         }
 
         // Initialize the base loader
@@ -148,22 +153,24 @@ fn main() -> Result<()> {
         let raw_items = client.fetch_items(search_response.get_result_ids()).await?;
         
         for raw_item in raw_items {
-            if let Ok(mut item) = serde_json::from_value::<Item>(raw_item) {
-                // Look up base type information
-                if let Some(base_type) = base_loader.get_base(&item.item_type.base_type) {
-                    // Update item with base requirements
-                    item.stat_requirements = base_type.stat_requirements.clone();
+            let conversion_result = serde_json::from_value::<ItemResponse>(raw_item)
+                .map_err(|e| ScraperError::ParseError(e.to_string()))
+                .and_then(|response| Item::try_from(response));
+        
+            match conversion_result {
+                Ok(mut item) => {
+                    if let Some(base_type) = base_loader.get_base(&item.item_type.base_type) {
+                        item.stat_requirements = base_type.stat_requirements.clone();
+                        
+                        if let Err(e) = db.store_collected_item(&item).await {
+                            eprintln!("Warning: Failed to store processed item: {}", e);
+                        }
+                    }
                 }
-                
-                // Store the processed item in the database
-                if let Err(e) = db.store_collected_item(&item).await {
-                    eprintln!("Warning: Failed to store processed item: {}", e);
+                Err(e) => {
+                    eprintln!("Warning: Failed to process item: {}", e);
+                    continue;
                 }
-                
-                // modifier_analyzer.process_item(&ItemResponse::from(item.clone()));
-                // if args.analyze_stats {
-                //     stat_analyzer.process_item(&ItemResponse::from(item.clone()));
-                // }
             }
         }
 
@@ -171,14 +178,8 @@ fn main() -> Result<()> {
         if args.analyze_stats {
             let stat_report = stat_analyzer.generate_attribute_report();
             
-            // Save to both console and database
             println!("Stat Analysis Report:");
             println!("{}", serde_json::to_string_pretty(&stat_report)?);
-            
-            // TODO add a new table and method for storing analysis results
-            // if let Err(e) = db.store_analysis_result(&stat_report).await {
-            //     eprintln!("Warning: Failed to store analysis results: {}", e);
-            // }
         }
 
         println!("Analysis complete!");
