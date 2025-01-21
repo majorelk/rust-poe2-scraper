@@ -7,4 +7,6 @@ src/data/example_query.json
 *.db
 *.sqlite
 *.sqlite3
+poe_items.db*
 poe_items.db
+

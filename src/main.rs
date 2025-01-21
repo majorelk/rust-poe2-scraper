@@ -4,7 +4,7 @@ use serde_json;
 
 use crate::{
     analyzer::{ModifierAnalyzer, StatAnalyzer, StatCollector},
-    models::{Item, ItemModifier, ItemCategory, ItemResponse},
+    models::{Item, ItemCategory, ItemResponse},
     errors::{ScraperError, Result},
     data::item_base_data_loader::BaseDataLoader,
     storage::Database,
@@ -15,13 +15,10 @@ use crate::fetcher::{
     TradeQuery,
     StatusFilter,
     StatFilter,
-    StatFilterValue,
-    StatValue,
     QueryFilters,
     TypeFilters,
     CategoryFilter,
     CategoryOption,
-    TradeStatus,
 };
 
 // These are the top-level modules

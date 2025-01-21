@@ -1,4 +1,8 @@
-use crate::models::{ItemResponse, ModifierStats, StatisticalMeasures, ModInfo};
+use crate::models::{
+    ItemResponse,
+    ModifierStats,
+    ModInfo
+};
 use std::collections::HashMap;
 
 pub struct ModifierAnalyzer {
