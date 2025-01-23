@@ -9,6 +9,7 @@ use crate::models::{
 };
 use crate::errors::Result;
 use std::collections::HashMap;
+use crate::ScraperError;
 
 const DEFAULT_DATABASE_URL: &str = "sqlite:poe_items.db";
 
@@ -153,33 +154,42 @@ impl Database {
     }
 
     pub async fn store_collected_item(&self, item: &Item) -> Result<i64> {
+        println!("Attempting to store item in database: {} ({})", 
+            item.name.as_deref().unwrap_or("unnamed"), 
+            item.id);
+            
         let mut tx = self.pool.begin().await?;
-
-        // Create base item from item type information
-        let base_item = ItemBaseType {
-            name: item.item_type.base_type.clone(),
-            category: item.item_type.category.clone(),
-            stat_requirements: StatRequirements::new(),
-            implicit_modifiers: vec![],
-            base_level: item.item_type.required_level.unwrap_or(1),
-            tags: vec![],
+        
+        // First, ensure we have the base item
+        let base_item_id = match sqlx::query!(
+            "SELECT id FROM base_items WHERE name = ?",
+            item.item_type.base_type
+        )
+        .fetch_optional(&mut *tx)
+        .await? {
+            Some(row) => {
+                println!("Found existing base item with id: {:?}", row.id);
+                row.id.expect("Database returned null ID")
+            }
+            None => {
+                println!("Base item not found, this might cause an error due to foreign key constraint");
+                return Err(ScraperError::DatabaseError(
+                    format!("Base item not found: {}", item.item_type.base_type)
+                ));
+            }
         };
-
-        // Store or update base item
-        let base_item_id = self.store_base_item(&base_item).await?;
-
-        // Prepare all data before using in query
+        
+        // Prepare all our JSON strings and values before the query
         let stats_json = serde_json::to_string(&item.stats)?;
         let stat_requirements_json = serde_json::to_string(&item.stat_requirements)?;
         let attribute_values_json = serde_json::to_string(&item.attribute_values)?;
         
-        // Extract price information into owned values
-        let (price_amount, price_currency) = if let Some(price) = &item.price {
-            (Some(price.amount), Some(price.currency.clone()))
-        } else {
-            (None, None)
-        };
-
+        // Extract price information into owned values that will live long enough
+        let price_amount = item.price.as_ref().map(|p| p.amount);
+        let price_currency = item.price.as_ref().map(|p| p.currency.clone());
+        
+        println!("Inserting item into collected_items table...");
+        
         // Insert collected item
         let result = sqlx::query!(
             r#"
@@ -202,10 +212,11 @@ impl Database {
         )
         .execute(&mut *tx)
         .await?;
-
+        
         let item_id = result.last_insert_rowid();
-
-        // Store item modifiers with their values
+        println!("Successfully inserted item with ID: {}", item_id);
+        
+        // Store item modifiers
         for modifier in &item.modifiers {
             let modifier_id = self.ensure_modifier(modifier, &mut tx).await?;
             let values_json = serde_json::to_string(&modifier.values)?;
@@ -223,8 +234,10 @@ impl Database {
             .execute(&mut *tx)
             .await?;
         }
-
+        
         tx.commit().await?;
+        println!("Successfully committed transaction for item");
+        
         Ok(item_id)
     }
 

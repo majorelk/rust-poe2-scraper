@@ -1,7 +1,12 @@
 /target
 output.txt
-src/data/raw_data_structure.json
-src/data/example_query.json
+debug_output.txt
+src/data/*.json
+src/data/*.csv
+src/data/*.db
+src/data/*.sqlite
+src/data/*.sqlite3
+src/data/*.db*
 
 # Ignore database files
 *.db
@@ -9,4 +14,3 @@ src/data/example_query.json
 *.sqlite3
 poe_items.db*
 poe_items.db
-

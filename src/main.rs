@@ -80,27 +80,48 @@ fn main() -> Result<()> {
             let client = TradeApiClient::new(args.league.clone());
             let mut collector = StatCollector::new(client);
             
-            // Collect items and store them in both database and file
+            println!("Collecting stat data...");
             let items = collector.collect_stat_data().await?;
+            let total_items = items.len();
+            println!("Collected {} items from API", total_items);
             
-            // Save to file
             collector.save_collected_data(&items, "collected_data.json").await?;
+            println!("Saved items to collected_data.json");
             
-            // Convert and store items in database
-            for item_response in items {
+            let mut successful_conversions = 0;
+            let mut successful_saves = 0;
+            
+            for (index, item_response) in items.into_iter().enumerate() {
+                println!("Processing item {}", index + 1);
+                
                 match Item::try_from(item_response) {
                     Ok(item) => {
-                        if let Err(e) = db.store_collected_item(&item).await {
-                            eprintln!("Warning: Failed to store item in database: {}", e);
+                        successful_conversions += 1;
+                        println!("Successfully converted item: {} ({})", 
+                            item.name.as_deref().unwrap_or("unnamed"), 
+                            item.id);
+                        
+                        match db.store_collected_item(&item).await {
+                            Ok(_) => {
+                                successful_saves += 1;
+                                println!("Successfully stored item in database");
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to store item in database: {}", e);
+                                eprintln!("Item details: {:?}", item);
+                            }
                         }
                     }
                     Err(e) => {
-                        eprintln!("Warning: Failed to convert item: {}", e);
+                        eprintln!("Failed to convert item {}: {}", index + 1, e);
                     }
                 }
             }
-        } else {
-            println!("Skipping data collection...");
+            
+            println!("Collection summary:");
+            println!("Total items processed: {}", total_items);
+            println!("Successful conversions: {}", successful_conversions);
+            println!("Successfully saved to DB: {}", successful_saves);
         }
 
         // Initialize the base loader
