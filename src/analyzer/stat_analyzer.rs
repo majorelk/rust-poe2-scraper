@@ -1,18 +1,9 @@
 use std::collections::{HashMap, HashSet};
-use crate::data::item_base_data_loader::BaseDataLoader;
 use serde::{Serialize, Deserialize};
 use serde_json::json;
 use crate::models::{
-    ModInfo,
-    ExplicitMod,
-    CoreAttribute,
-    StatRequirements,
-    Item,
-    ItemModifier,
     ItemResponse,
     CleanedItem,
-    Magnitude,
-    ItemRequirement
 };
 use crate::models::poe_item::ModBase;
 use std::ops::Deref;

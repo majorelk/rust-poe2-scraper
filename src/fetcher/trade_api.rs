@@ -4,6 +4,7 @@ use crate::errors::Result;
 use std::time::{Duration, Instant};
 use crate::models::{Item, ItemResponse};
 use rand; // 0.8.4
+use crate::ScraperError;
 
 #[derive(Debug, Serialize)]
 pub struct SearchRequest {
@@ -107,6 +108,36 @@ impl TradeApiClient {
             league,
             last_request: Instant::now(),
             rate_limit_delay: Duration::from_millis(100),
+        }
+    }
+
+    async fn process_raw_item(&self, raw_item: serde_json::Value) -> Result<ItemResponse> {
+        println!("Processing raw item structure:");
+        println!("{}", serde_json::to_string_pretty(&raw_item).unwrap_or_default());
+        
+        match serde_json::from_value::<ItemResponse>(raw_item.clone()) {
+            Ok(response) => {
+                println!("Successfully processed item:");
+                println!("  ID: {}", response.id);
+                println!("  Base Type: {}", response.item.base_type);
+                println!("  Type Line: {}", response.item.type_line);
+                println!("  Price: {} {}", response.listing.price.amount, response.listing.price.currency);
+                
+                Ok(response)
+            }
+            Err(e) => {
+                println!("Failed to process item. Error: {}", e);
+                println!("Examining raw item fields:");
+                if let Some(obj) = raw_item.as_object() {
+                    for (key, value) in obj {
+                        println!("  {}: {:?}", key, value);
+                    }
+                }
+                Err(ScraperError::ParseError(format!(
+                    "Failed to parse item: {}. Raw data available in debug output.",
+                    e
+                )))
+            }
         }
     }
 
@@ -279,30 +310,34 @@ impl TradeApiClient {
         println!("Search returned {} results", search_response.result.len());
         
         let raw_items = self.fetch_items(search_response.get_result_ids()).await?;
-        println!("Fetched {} raw items", raw_items.len());
+        let total_items = raw_items.len();  // Store the length before processing
+        println!("Fetched {} raw items", total_items);
         
-        let items: Vec<ItemResponse> = raw_items
-            .into_iter()
-            .filter_map(|raw_item| {
-                match serde_json::from_value::<ItemResponse>(raw_item.clone()) {
-                    Ok(item) => {
-                        // Log useful information about each item
-                        println!("Processed item: {} - {} {}", 
-                            item.id,
-                            item.item.base_type,
-                            item.listing.price.amount);
-                        Some(item)
-                    },
-                    Err(e) => {
-                        eprintln!("Failed to parse item: {}", e);
-                        eprintln!("Raw item data: {}", serde_json::to_string_pretty(&raw_item).unwrap_or_default());
-                        None
-                    }
+        let mut processed_items = Vec::new();
+        let mut failed_count = 0;
+        
+        // Process each raw item using our diagnostic method
+        for raw_item in raw_items {
+            match self.process_raw_item(raw_item.clone()).await {
+                Ok(item) => {
+                    println!("Processed item: {} - {} {}", 
+                        item.id,
+                        item.item.base_type,
+                        item.listing.price.amount);
+                    processed_items.push(item);
+                },
+                Err(e) => {
+                    eprintln!("Failed to process item: {}", e);
+                    failed_count += 1;
                 }
-            })
-            .collect();
+            }
+        }
     
-        println!("Successfully parsed {} items", items.len());
-        Ok(items)
+        println!("\nProcessing summary:");
+        println!("Total items attempted: {}", total_items);  // Use our stored count
+        println!("Successfully processed: {}", processed_items.len());
+        println!("Failed to process: {}", failed_count);
+        
+        Ok(processed_items)
     }
 }

@@ -78,7 +78,9 @@ pub struct Requirement {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Property {
     pub name: String,
+    #[serde(default)]
     pub values: Vec<(String, i32)>,
+    #[serde(default)]
     pub display_mode: i32,
 }
 
@@ -117,6 +119,28 @@ impl Deref for ExplicitMod {
 }
 
 impl ItemResponse {
+
+    pub fn debug_print(&self) {
+        println!("Processing ItemResponse:");
+        println!("  ID: {}", self.id);
+        println!("  Base Type: {}", self.item.base_type);
+        println!("  Type Line: {}", self.item.type_line);
+        println!("  Properties count: {}", self.item.properties.len());
+        println!("  Requirements count: {}", self.item.requirements.len());
+        println!("  Explicit mods count: {}", self.item.explicit_mods.len());
+    }
+
+    pub fn get_stat_values(&self) -> HashMap<String, i32> {
+        self.item.properties
+            .iter()
+            .filter_map(|prop| {
+                prop.values.first().map(|(value, _)| {
+                    (prop.name.clone(), value.parse::<i32>().unwrap_or(0))
+                })
+            })
+            .collect()
+    }
+
     pub fn get_stat_requirements(&self) -> HashMap<String, u32> {
         self.item.requirements
             .iter()
