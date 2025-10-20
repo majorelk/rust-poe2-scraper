@@ -198,6 +198,154 @@ cargo run -- --scrape-query @examples/entry-level.json --metrics 0.0.0.0:9464 &
 curl http://localhost:9464/metrics
 ```
 
+### Getting Clean Items and Modifier Stats
+
+The scraper provides two primary workflows for obtaining clean items and analyzing modifier statistics:
+
+#### Method 1: New Scraping Pipeline (Recommended)
+
+This is the modern, production-ready approach using the new scraping infrastructure:
+
+```bash
+# 1. Create a search query file (or use examples/entry-level.json)
+cat > my-query.json << 'EOF'
+{
+  "league": "Standard",
+  "min_price": 1,
+  "max_price": 100,
+  "item_category": "weapon"
+}
+EOF
+
+# 2. Scrape items using the query
+cargo run -- --scrape-query @my-query.json
+
+# This will:
+# - Fetch items from the trade API with rate limiting
+# - Store raw listings in the 'listings' table
+# - Extract and store modifier data in 'listing_modifiers' table
+# - Create audit trail in 'scrape_runs' table
+
+# 3. Normalize the scraped modifier data
+cargo run -- --normalize
+
+# This will:
+# - Read modifier data from the database
+# - Group modifiers across base types
+# - Compute quantile-based statistics (Q25, median, Q75)
+# - Generate normalized scores (0-100) for cross-base comparison
+# - Store results in 'normalized_mod_stats' table
+# - Print a summary histogram of top modifiers
+
+# 4. Query the results from SQLite
+sqlite3 poe_items.db << 'SQL'
+-- View normalized modifier statistics
+SELECT * FROM normalized_mod_stats 
+ORDER BY normalized_score DESC 
+LIMIT 10;
+
+-- View raw listings with their modifiers
+SELECT l.base_type, l.item_name, lm.name, lm.min_value, lm.max_value
+FROM listings l
+JOIN listing_modifiers lm ON l.id = lm.listing_id
+LIMIT 20;
+SQL
+```
+
+#### Method 2: Legacy Collection with Analysis (Legacy)
+
+This is the original workflow using the `--collect-data` and `--analyze-stats` flags:
+
+```bash
+# 1. Collect raw item data from trade API
+cargo run -- --collect-data
+
+# This will:
+# - Fetch items from the trade API
+# - Convert ItemResponse objects into Item structs (CleanedItem)
+# - Store items in 'collected_items' table with their base_item_id
+# - Store modifiers in 'item_modifiers' table
+# - Save raw collected data to 'collected_data.json'
+
+# 2. Analyze modifier statistics
+cargo run -- --analyze-stats
+
+# This will:
+# - Process all collected items
+# - Generate attribute correlation reports
+# - Calculate modifier occurrence counts
+# - Compute average attribute thresholds
+# - Output analysis as JSON to stdout
+
+# 3. Access CleanedItem data programmatically
+# The CleanedItem struct provides a clean interface to scraped data:
+# - base_type: Item base type
+# - name: Item display name
+# - explicit_mods: List of explicit modifier texts
+# - item_level: Item level
+# - properties: Item properties (damage, armor, etc.)
+# - requirements: Stat requirements (Str, Dex, Int)
+# - mod_info: Structured modifier data with tiers and magnitudes
+# - mod_hashes: Hash mapping for modifier identification
+```
+
+#### Understanding the Data Model
+
+**CleanedItem Structure:**
+```rust
+CleanedItem {
+    base_type: String,              // "Siege Axe", "Zodiac Leather"
+    name: String,                   // Full item name/type line
+    explicit_mods: Vec<String>,     // ["Adds 10-20 Physical Damage"]
+    item_level: u32,                // 68
+    properties: Vec<ItemProperty>,  // Damage, armor, etc.
+    requirements: Vec<ItemRequirement>, // Str/Dex/Int requirements
+    mod_info: ModInfo {             // Structured modifier data
+        explicit: Vec<ExplicitMod>  // name, tier, magnitudes, level
+    },
+    mod_hashes: HashMap<String, Vec<Vec<i32>>> // For deduplication
+}
+```
+
+**Accessing Modifier Information:**
+```rust
+// Get explicit modifiers with their tiers
+let mods = cleaned_item.get_explicit_mods();
+// Returns: Vec<(&str, &str)> = [("ModName", "P1"), ...]
+
+// Get stat requirements
+let requirements = cleaned_item.get_stat_requirements();
+// Returns: HashMap<String, u32> = {"Strength": 100, "Dexterity": 50}
+```
+
+#### Database Schema Reference
+
+The scraper uses SQLite with the following key tables:
+
+**New Pipeline Tables:**
+- `listings` - Raw item listings with prices, base types, and full item data
+- `listing_modifiers` - Extracted modifiers from listings (name, tier, values)
+- `scrape_runs` - Audit trail of scraping operations
+- `normalized_mod_stats` - Normalized modifier statistics across base types
+
+**Legacy Tables:**
+- `collected_items` - Items from legacy collection pipeline
+- `item_modifiers` - Modifiers from legacy collection
+- `base_items` - Base item type definitions
+- `modifiers` - Unique modifier definitions
+
+#### Tips for Modifier Analysis
+
+1. **Bias Awareness**: Higher-value listings tend to have better modifiers. Scrape across price ranges for better distribution estimates.
+
+2. **Normalization**: Use `--normalize` to account for differences between base item types. Normalized scores (0-100) allow fair comparison.
+
+3. **Sample Size**: Larger scrapes provide better statistical accuracy. Use multiple query files to cover different item categories.
+
+4. **Incremental Scraping**: The scraper is idempotent - run multiple scrapes to accumulate data without duplicates.
+
+5. **Query Customization**: Adjust `min_price`, `max_price`, and item filters in query files to target specific item segments.
+
 ### Output
 
 - **Database**: All scraped data is stored in `poe_items.db` (SQLite)
