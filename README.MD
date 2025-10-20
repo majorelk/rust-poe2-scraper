@@ -84,7 +84,11 @@ cargo run -- --help # Show CLI options
     cargo build
     ```
 
-**Note:** This project uses sqlx with offline mode. The `.sqlx/` directory contains pre-compiled query metadata, allowing the project to build without requiring a live database connection during compilation. If you modify SQL queries in the code, you'll need to regenerate this metadata:
+**Note:** This project uses sqlx with offline mode for compilation. The project includes:
+- `.cargo/config.toml` - Sets `SQLX_OFFLINE=true` to enable offline compilation
+- `.sqlx/` directory - Contains pre-compiled query metadata
+
+This allows the project to build without requiring a live database connection during compilation. If you modify SQL queries in the code, you'll need to regenerate the query metadata:
 
 ```sh
 # Install sqlx-cli if not already installed
@@ -94,7 +98,7 @@ cargo install sqlx-cli --no-default-features --features sqlite
 sqlx database create
 sqlx migrate run
 
-# Regenerate query metadata
+# Regenerate query metadata for offline mode
 cargo sqlx prepare
 ```
 
