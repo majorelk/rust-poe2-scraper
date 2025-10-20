@@ -22,6 +22,7 @@ mod data;
 mod errors;
 mod fetcher;
 mod models;
+mod net;
 mod storage;
 mod telemetry;
 
