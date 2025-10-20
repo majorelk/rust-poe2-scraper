@@ -15,6 +15,7 @@ pub struct ModInfo {
     base: ModBase,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ExplicitMod {
     #[serde(flatten)]
@@ -118,6 +119,7 @@ impl Deref for ExplicitMod {
     }
 }
 
+#[allow(dead_code)]
 impl ItemResponse {
     pub fn debug_print(&self) {
         println!("Processing ItemResponse:");

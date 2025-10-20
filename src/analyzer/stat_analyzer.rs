@@ -299,7 +299,7 @@ impl StatAnalyzer {
         }
 
         // Sort by correlation strength
-        common_pairs.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
+        common_pairs.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
         common_pairs
     }
 
@@ -360,7 +360,10 @@ impl StatAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::cleaned_item::{ExplicitMod, ItemProperty, ItemRequirement, ModInfo};
+    use crate::models::item::Item;
     use crate::models::item_type::{ItemCategory, ItemRarity, ItemType};
+    use crate::models::poe_item::Magnitude;
 
     #[test]
     fn test_stat_analyzer_basic_functionality() {

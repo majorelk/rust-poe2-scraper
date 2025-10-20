@@ -34,6 +34,7 @@ pub struct Item {
     pub attribute_values: HashMap<CoreAttribute, u32>,
 }
 
+#[allow(dead_code)]
 impl Item {
     pub fn new(id: String, item_type: ItemType) -> Self {
         Self {

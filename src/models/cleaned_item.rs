@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::Deref;
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CleanedItem {
     // Core item information
@@ -22,6 +23,7 @@ pub struct CleanedItem {
     pub mod_hashes: HashMap<String, Vec<Vec<i32>>>, // from extended.hashes
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ItemProperty {
     pub name: String,
@@ -29,6 +31,7 @@ pub struct ItemProperty {
     pub display_mode: i32,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ItemRequirement {
     pub name: String,
@@ -36,11 +39,13 @@ pub struct ItemRequirement {
     pub display_mode: i32,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ModInfo {
     pub explicit: Vec<ExplicitMod>, // Collection of explicit mods
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExplicitMod {
     #[serde(flatten)]
@@ -59,6 +64,7 @@ impl Deref for ExplicitMod {
     }
 }
 
+#[allow(dead_code)]
 impl CleanedItem {
     pub fn from_response(response: &ItemResponse) -> Self {
         Self {

@@ -10,6 +10,7 @@ pub struct Database {
     pool: SqlitePool,
 }
 
+#[allow(dead_code)]
 impl Database {
     pub async fn initialize() -> Result<Self> {
         let database_url =

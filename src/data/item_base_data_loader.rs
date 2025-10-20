@@ -26,6 +26,7 @@ pub struct BaseDataLoader {
     last_update: std::time::SystemTime,
 }
 
+#[allow(dead_code)]
 impl BaseDataLoader {
     pub fn new() -> Self {
         Self {
@@ -167,11 +168,12 @@ impl BaseDataLoader {
     }
 }
 
+#[allow(dead_code)]
 pub async fn initialize_base_loader() -> Result<BaseDataLoader> {
     let mut loader = BaseDataLoader::new();
 
     // Try to load initial data from file
-    if let Err(_) = loader.load_from_file("data/item_bases.json").await {
+    if (loader.load_from_file("data/item_bases.json").await).is_err() {
         // If file doesn't exist or is invalid, update from API
         loader
             .update_from_api("https://api.pathofexile.com/trade/data/items")

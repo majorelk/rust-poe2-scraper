@@ -2,6 +2,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 #[allow(clippy::enum_variant_names)]
+#[allow(dead_code)]
 pub enum ScraperError {
     #[error("API error: {0}")]
     ApiError(String),

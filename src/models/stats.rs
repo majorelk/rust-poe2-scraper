@@ -25,6 +25,7 @@ pub struct ModifierStats {
     pub measures: StatisticalMeasures,
 }
 
+#[allow(dead_code)]
 impl ModifierStats {
     pub fn new(name: String) -> Self {
         Self {
@@ -56,17 +57,17 @@ impl ModifierStats {
         let values: Vec<f64> = self.price_points.iter().map(|(v, _)| *v).collect();
         self.measures.min = *values
             .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap_or(&0.0);
         self.measures.max = *values
             .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap_or(&0.0);
         self.measures.mean = values.iter().sum::<f64>() / values.len() as f64;
 
         // Calculate median
         let mut sorted = values.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let mid = sorted.len() / 2;
         self.measures.median = if sorted.len().is_multiple_of(2) {
             (sorted[mid - 1] + sorted[mid]) / 2.0

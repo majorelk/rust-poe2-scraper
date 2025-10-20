@@ -15,6 +15,7 @@ pub struct StatRequirements {
     pub attribute_thresholds: HashMap<CoreAttribute, u32>,
 }
 
+#[allow(dead_code)]
 impl StatRequirements {
     pub fn new() -> Self {
         Self {
@@ -60,6 +61,7 @@ pub struct ItemBaseType {
     pub tags: Vec<String>,
 }
 
+#[allow(dead_code)]
 impl ItemBaseType {
     pub fn new(name: String, category: super::item_type::ItemCategory) -> Self {
         Self {
@@ -90,10 +92,12 @@ impl ItemBaseType {
 }
 
 // Database to manage item bases
+#[allow(dead_code)]
 pub struct ItemBaseDatabase {
     bases: HashMap<String, ItemBaseType>,
 }
 
+#[allow(dead_code)]
 impl ItemBaseDatabase {
     pub fn new() -> Self {
         Self {

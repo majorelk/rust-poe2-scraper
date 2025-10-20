@@ -29,6 +29,7 @@ pub struct ItemType {
     pub required_level: Option<u32>,
 }
 
+#[allow(dead_code)]
 impl ItemType {
     pub fn new(category: ItemCategory, base_type: String, rarity: ItemRarity) -> Self {
         Self {

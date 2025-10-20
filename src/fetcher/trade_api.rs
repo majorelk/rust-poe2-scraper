@@ -13,6 +13,7 @@ pub struct SearchRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct SearchResponse {
     result: Vec<String>,
     total: u32,
@@ -32,6 +33,7 @@ pub struct TradeApiClient {
     rate_limit_delay: Duration,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub enum TradeStatus {
     Online,
@@ -91,6 +93,7 @@ pub struct StatusFilter {
     pub option: String,
 }
 
+#[allow(dead_code)]
 impl TradeStatus {
     fn as_str(&self) -> &'static str {
         match self {
@@ -286,6 +289,7 @@ impl TradeApiClient {
         }
     }
 
+    #[allow(dead_code)]
     pub fn build_basic_query(&self, status: TradeStatus) -> SearchRequest {
         SearchRequest {
             query: TradeQuery {
@@ -313,6 +317,7 @@ impl TradeApiClient {
         }
     }
 
+    #[allow(dead_code)]
     pub fn build_jewel_query(&self, status: TradeStatus) -> SearchRequest {
         SearchRequest {
             query: TradeQuery {
