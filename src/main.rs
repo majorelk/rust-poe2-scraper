@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use tracing::{info, warn};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::fetcher::{
     CategoryFilter, CategoryOption, QueryFilters, SearchRequest, StatFilter, StatusFilter,
@@ -9,6 +8,7 @@ use crate::fetcher::{
 };
 use crate::{
     analyzer::{ModifierAnalyzer, StatAnalyzer, StatCollector},
+    config::Config,
     data::item_base_data_loader::BaseDataLoader,
     errors::ScraperError,
     models::Item,
@@ -17,11 +17,13 @@ use crate::{
 
 // These are the top-level modules
 mod analyzer;
+mod config;
 mod data;
 mod errors;
 mod fetcher;
 mod models;
 mod storage;
+mod telemetry;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
@@ -74,29 +76,15 @@ async fn initialize_base_loader() -> Result<BaseDataLoader> {
     Ok(loader)
 }
 
-fn init_tracing() {
-    let log_format = std::env::var("RUST_LOG_FORMAT").unwrap_or_else(|_| "pretty".to_string());
-
-    let subscriber = tracing_subscriber::registry();
-
-    if log_format == "json" {
-        let json_layer = tracing_subscriber::fmt::layer()
-            .json()
-            .with_current_span(true)
-            .with_span_list(true);
-        subscriber.with(json_layer).init();
-    } else {
-        let pretty_layer = tracing_subscriber::fmt::layer().pretty();
-        subscriber.with(pretty_layer).init();
-    }
-}
-
 fn main() -> Result<()> {
-    // Load environment variables from .env file if it exists
-    dotenvy::dotenv().ok();
+    // Load configuration from environment
+    let config = Config::load();
 
-    // Initialize tracing
-    init_tracing();
+    // Initialize telemetry with config
+    telemetry::init(&config.log_format);
+
+    // Log config summary (no secrets)
+    config.log_summary();
 
     tokio::runtime::Runtime::new()
         .context("Failed to create Tokio runtime")?
