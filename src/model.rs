@@ -194,7 +194,8 @@ mod tests {
 
     #[test]
     fn test_scrape_meta() {
-        let mut meta = ScrapeMeta::new("https://example.com".to_string(), Some("trade".to_string()));
+        let mut meta =
+            ScrapeMeta::new("https://example.com".to_string(), Some("trade".to_string()));
 
         assert_eq!(meta.page_count, 0);
         assert_eq!(meta.items_processed, 0);

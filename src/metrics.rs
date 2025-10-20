@@ -20,21 +20,25 @@ pub struct Metrics;
 
 impl Metrics {
     /// Record an HTTP request
+    #[allow(dead_code)]
     pub fn record_http_request(_status: u16, _method: &str) {
         counter!("http_requests_total", 1);
     }
 
     /// Record an HTTP request duration
+    #[allow(dead_code)]
     pub fn record_http_duration(duration_ms: f64, _method: &str) {
         histogram!("http_request_duration_ms", duration_ms);
     }
 
     /// Record a retry attempt
+    #[allow(dead_code)]
     pub fn record_retry(_reason: &str) {
         counter!("http_retries_total", 1);
     }
 
     /// Record a database write
+    #[allow(dead_code)]
     pub fn record_db_write(_table: &str, _success: bool) {
         counter!("db_writes_total", 1);
     }

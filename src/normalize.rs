@@ -14,9 +14,9 @@ pub struct NormalizedModStat {
     pub max_value: f64,
     pub mean_value: f64,
     pub median_value: f64,
-    pub q25_value: f64,  // 25th percentile
-    pub q75_value: f64,  // 75th percentile
-    pub normalized_score: f64,  // 0-100 score
+    pub q25_value: f64,        // 25th percentile
+    pub q75_value: f64,        // 75th percentile
+    pub normalized_score: f64, // 0-100 score
 }
 
 /// Normalizer for creating comparable modifier statistics across base types
@@ -65,9 +65,7 @@ impl Normalizer {
     }
 
     /// Group modifiers by name and base type
-    async fn group_modifiers_by_name(
-        &self,
-    ) -> Result<HashMap<String, HashMap<String, Vec<f64>>>> {
+    async fn group_modifiers_by_name(&self) -> Result<HashMap<String, HashMap<String, Vec<f64>>>> {
         let rows = sqlx::query!(
             r#"
             SELECT 
@@ -89,7 +87,7 @@ impl Normalizer {
         for row in rows {
             let mod_name = row.modifier_name;
             let base_type = row.base_type;
-            
+
             // Use average of min/max as the value
             let value = if let (Some(min), Some(max)) = (row.min_value, row.max_value) {
                 (min + max) / 2.0
@@ -247,16 +245,17 @@ impl Normalizer {
         }
 
         info!("Normalized Score Distribution:");
-        info!("{:<40} {:<20} {:>6} {:>8}", "Modifier", "Base Type", "Count", "Score");
+        info!(
+            "{:<40} {:<20} {:>6} {:>8}",
+            "Modifier", "Base Type", "Count", "Score"
+        );
         info!("{}", "-".repeat(80));
 
-        for stat in stats.iter().take(20) {  // Show top 20
+        for stat in stats.iter().take(20) {
+            // Show top 20
             info!(
                 "{:<40} {:<20} {:>6} {:>8.2}",
-                stat.modifier_name,
-                stat.base_type,
-                stat.sample_count,
-                stat.normalized_score
+                stat.modifier_name, stat.base_type, stat.sample_count, stat.normalized_score
             );
         }
     }
@@ -293,6 +292,6 @@ mod tests {
         assert_eq!(stat.min_value, 10.0);
         assert_eq!(stat.max_value, 50.0);
         assert_eq!(stat.median_value, 30.0);
-        assert_eq!(stat.normalized_score, 50.0);  // Median at middle of range
+        assert_eq!(stat.normalized_score, 50.0); // Median at middle of range
     }
 }

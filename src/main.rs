@@ -127,14 +127,14 @@ fn main() -> Result<()> {
             // Handle scrape query if provided
             if let Some(query_file) = &args.scrape_query {
                 info!("Loading scrape query from: {}", query_file);
-                
+
                 // Remove @ prefix if present
                 let file_path = query_file.trim_start_matches('@');
-                
+
                 let query = scrape::SearchQuery::from_file(file_path)
                     .await
                     .context("Failed to load query file")?;
-                
+
                 let mut scraper = if args.dry_run {
                     info!("Running in DRY RUN mode - no network calls will be made");
                     scrape::Scraper::new_dry_run(config)
@@ -145,37 +145,37 @@ fn main() -> Result<()> {
                         .await
                         .context("Failed to create scraper")?
                 };
-                
+
                 let meta = scraper
                     .scrape(&query)
                     .await
                     .context("Failed to execute scrape")?;
-                
+
                 info!(
                     "Scrape complete: run_id={}, items_processed={}, items_saved={}, duration_ms={:?}",
                     meta.run_id, meta.items_processed, meta.items_saved, meta.duration_ms
                 );
-                
+
                 return Ok(());
             }
 
             // Handle normalize command
             if args.normalize {
                 info!("Running normalization pass");
-                
+
                 let pool = sqlx::sqlite::SqlitePool::connect(&config.db_url)
                     .await
                     .context("Failed to connect to database")?;
-                
+
                 let normalizer = normalize::Normalizer::new(pool);
                 let stats = normalizer
                     .normalize()
                     .await
                     .context("Failed to run normalization")?;
-                
+
                 info!("Normalization complete");
                 normalizer.print_histogram(&stats);
-                
+
                 return Ok(());
             }
 

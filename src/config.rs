@@ -52,7 +52,7 @@ impl Config {
     /// Load configuration from environment variables
     pub fn from_env() -> Result<Self, envy::Error> {
         dotenvy::dotenv().ok(); // Load .env file if it exists, ignore if not
-        
+
         let config = envy::prefixed("").from_env::<Config>()?;
         Ok(config)
     }

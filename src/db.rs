@@ -31,7 +31,7 @@ impl Db {
     pub async fn begin_scrape_run(&self, meta: &ScrapeMeta) -> Result<String> {
         let query_params = serde_json::to_string(&meta.query_params)?;
         let started_at = meta.started_at.to_rfc3339();
-        
+
         sqlx::query!(
             r#"
             INSERT INTO scrape_runs (
@@ -86,16 +86,17 @@ impl Db {
     }
 
     /// Insert or ignore a listing (idempotent)
+    #[allow(dead_code)]
     pub async fn insert_or_ignore_listing(&self, listing: &Listing) -> Result<bool> {
         let raw_data = serde_json::to_string(listing)?;
-        
+
         let account_online_league = listing
             .account
             .online
             .as_ref()
             .and_then(|o| o.league.as_ref())
             .map(|s| s.as_str());
-        
+
         let account_online_status = listing
             .account
             .online
@@ -165,6 +166,7 @@ impl Db {
     }
 
     /// Insert a modifier for a listing
+    #[allow(dead_code)]
     async fn insert_modifier(
         &self,
         listing_id: &str,
@@ -284,7 +286,8 @@ mod tests {
     async fn test_scrape_run_lifecycle(pool: Pool<Sqlite>) -> Result<()> {
         let db = Db { pool };
 
-        let mut meta = ScrapeMeta::new("https://example.com".to_string(), Some("trade".to_string()));
+        let mut meta =
+            ScrapeMeta::new("https://example.com".to_string(), Some("trade".to_string()));
 
         // Begin scrape run
         let run_id = db.begin_scrape_run(&meta).await?;

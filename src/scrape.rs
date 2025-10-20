@@ -32,6 +32,7 @@ impl SearchQuery {
 
 /// Scraper for fetching and persisting trade listings
 pub struct Scraper {
+    #[allow(dead_code)]
     http_client: HttpClient,
     db: Db,
     config: Config,
@@ -76,10 +77,7 @@ impl Scraper {
             .await
             .context("Failed to begin scrape run")?;
 
-        info!(
-            "Starting scrape run: {} ({})",
-            meta.run_id, meta.source_url
-        );
+        info!("Starting scrape run: {} ({})", meta.run_id, meta.source_url);
 
         // Execute the scrape
         match self.execute_scrape(query, &mut meta).await {
@@ -87,7 +85,9 @@ impl Scraper {
                 meta.complete();
                 info!(
                     "Scrape run completed: {} items processed, {} saved, {} errors",
-                    meta.items_processed, meta.items_saved, meta.errors.len()
+                    meta.items_processed,
+                    meta.items_saved,
+                    meta.errors.len()
                 );
             }
             Err(e) => {
@@ -116,14 +116,13 @@ impl Scraper {
     }
 
     /// Internal method to execute the actual scraping
-    async fn execute_scrape(
-        &mut self,
-        query: &SearchQuery,
-        meta: &mut ScrapeMeta,
-    ) -> Result<()> {
+    async fn execute_scrape(&mut self, query: &SearchQuery, meta: &mut ScrapeMeta) -> Result<()> {
         if self.dry_run {
             info!("DRY RUN: Would scrape with query: {:?}", query);
-            info!("DRY RUN: Would make API request to: {}/api/trade2/search", self.config.trade_base_url);
+            info!(
+                "DRY RUN: Would make API request to: {}/api/trade2/search",
+                self.config.trade_base_url
+            );
             info!("DRY RUN: Would parse response and persist to database");
             meta.page_count = 1;
             meta.items_processed = 0;
@@ -136,10 +135,10 @@ impl Scraper {
         // 2. Parse the response
         // 3. Map to Listing models
         // 4. Persist to database
-        
+
         // Mock implementation for demonstration
         debug!("Would execute API request here");
-        
+
         // In a real implementation:
         // let response = self.http_client.get(&url).await?;
         // let listings = self.parse_response(response).await?;

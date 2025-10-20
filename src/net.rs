@@ -7,13 +7,17 @@ use tracing::{debug, warn};
 
 /// HTTP client with rate limiting and retry logic
 pub struct HttpClient {
+    #[allow(dead_code)]
     client: Client,
+    #[allow(dead_code)]
     rate_limiter: RateLimiter<
         governor::state::direct::NotKeyed,
         governor::state::InMemoryState,
         governor::clock::DefaultClock,
     >,
+    #[allow(dead_code)]
     max_retries: u32,
+    #[allow(dead_code)]
     base_backoff_ms: u64,
 }
 
@@ -39,16 +43,19 @@ impl HttpClient {
     }
 
     /// Make a GET request with rate limiting and retries
+    #[allow(dead_code)]
     pub async fn get(&self, url: &str) -> Result<Response> {
         self.request_with_retry(|| self.client.get(url)).await
     }
 
     /// Make a POST request with rate limiting and retries
+    #[allow(dead_code)]
     pub async fn post(&self, url: &str) -> reqwest::RequestBuilder {
         self.client.post(url)
     }
 
     /// Execute a request with rate limiting and retry logic
+    #[allow(dead_code)]
     pub async fn execute_with_retry(
         &self,
         request_builder: reqwest::RequestBuilder,
@@ -58,6 +65,7 @@ impl HttpClient {
     }
 
     /// Internal method to handle retries with exponential backoff
+    #[allow(dead_code)]
     async fn request_with_retry<F>(&self, request_fn: F) -> Result<Response>
     where
         F: Fn() -> reqwest::RequestBuilder,
@@ -97,8 +105,7 @@ impl HttpClient {
             if !status.is_success() && attempt >= self.max_retries {
                 warn!(
                     status = status.as_u16(),
-                    "Request failed after {} retries",
-                    self.max_retries
+                    "Request failed after {} retries", self.max_retries
                 );
             }
 
@@ -107,6 +114,7 @@ impl HttpClient {
     }
 
     /// Check if a status code should trigger a retry
+    #[allow(dead_code)]
     fn should_retry(&self, status: StatusCode) -> bool {
         matches!(
             status,
@@ -119,6 +127,7 @@ impl HttpClient {
     }
 
     /// Calculate backoff duration with exponential backoff and jitter
+    #[allow(dead_code)]
     fn calculate_backoff(&self, attempt: u32, headers: &reqwest::header::HeaderMap) -> Duration {
         // Check for Retry-After header
         if let Some(retry_after) = headers.get("retry-after") {
