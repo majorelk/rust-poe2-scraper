@@ -19,6 +19,7 @@ use crate::{
 mod analyzer;
 mod config;
 mod data;
+mod db;
 mod errors;
 mod fetcher;
 mod model;
