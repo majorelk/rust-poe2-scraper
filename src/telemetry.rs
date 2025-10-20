@@ -24,8 +24,6 @@ pub fn init(log_format: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_init_formats() {
         // Test that init can be called with different formats
