@@ -35,8 +35,36 @@ The objective is to obtain an overview of modifier distributions (weights) by sc
 ## Getting Started
 
 ### Prerequisites
-- Rust programming language
+- Rust programming language (1.70+)
 - Access to the Path of Exile 2 trade site
+
+### Dev Quickstart
+
+```bash
+# Clone and setup
+git clone https://github.com/majorelk/rust-poe2-scraper.git
+cd rust-poe2-scraper
+cp .env.example .env
+
+# Build and run checks
+make check          # Run fmt, lint, and test
+make build          # Build the project
+make run            # Run the application
+
+# Or use cargo directly
+cargo build         # Build
+cargo test          # Run tests
+cargo run -- --help # Show CLI options
+```
+
+**Available Make targets:**
+- `make fmt` - Format code with rustfmt
+- `make lint` - Run clippy linter
+- `make test` - Run tests
+- `make run` - Run the application
+- `make build` - Build the project
+- `make check` - Run all checks (fmt, lint, test)
+- `make clean` - Clean build artifacts
 
 ### Installation
 1. Clone the repository:
