@@ -41,23 +41,46 @@ The objective is to obtain an overview of modifier distributions (weights) by sc
 ### Installation
 1. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/rust-scraper.git
+    git clone https://github.com/majorelk/rust-poe2-scraper.git
     ```
 2. Navigate to the project directory:
     ```sh
-    cd rust-scraper
+    cd rust-poe2-scraper
     ```
-3. Build the project:
+3. Copy the example environment file and configure as needed:
+    ```sh
+    cp .env.example .env
+    ```
+4. Build the project:
     ```sh
     cargo build
     ```
 
+### Configuration
+The scraper can be configured through environment variables (see `.env.example`):
+- `DATABASE_URL`: SQLite database path (default: `sqlite:poe_items.db`)
+- `RATE_LIMIT_DELAY_MS`: Delay between API requests in milliseconds (default: `500`)
+- `RUST_LOG`: Logging level (e.g., `info`, `debug`, `trace`)
+- `RUST_LOG_FORMAT`: Log format - `json` for structured logs or `pretty` for human-readable (default: `pretty`)
+
 ### Usage
-1. Run the scraper:
+1. Run the scraper with data collection:
     ```sh
-    cargo run
+    cargo run -- --collect-data
     ```
-2. The scraped data will be saved in the `output` directory.
+2. Run with stat analysis:
+    ```sh
+    cargo run -- --analyze-stats
+    ```
+3. The scraped data will be saved in the SQLite database (`poe_items.db`) and `collected_data.json`.
+
+### Features
+- **Rate-limited API requests**: Configurable rate limiting with jitter to avoid overwhelming the API
+- **Polite User-Agent headers**: Identifies the scraper properly to the API
+- **Environment-based configuration**: All settings via `.env` file
+- **Structured logging**: JSON or pretty-printed logs with tracing
+- **Idempotent database writes**: Uses upserts and unique constraints to avoid duplicates
+- **Robust error handling**: Uses `anyhow` and `thiserror` for comprehensive error context
 
 ## Contributing
 Contributions are welcome! Please open an issue or submit a pull request.
