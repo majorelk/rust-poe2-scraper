@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO base_items (\n                    name, category, stat_requirements,\n                    implicit_modifiers, base_level, tags,\n                    created_at, updated_at\n                ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "66610228650c9c188c738cdeb2041f82bae100cfd9e7d82a03f7cdc4ba9679a4"
+}

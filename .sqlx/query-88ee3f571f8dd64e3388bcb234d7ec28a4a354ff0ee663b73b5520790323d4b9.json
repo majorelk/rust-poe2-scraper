@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT \n                lm.name as modifier_name,\n                l.base_type,\n                lm.min_value,\n                lm.max_value\n            FROM listing_modifiers lm\n            JOIN listings l ON l.id = lm.listing_id\n            WHERE lm.min_value IS NOT NULL\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "modifier_name",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "base_type",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "min_value",
+        "ordinal": 2,
+        "type_info": "Float"
+      },
+      {
+        "name": "max_value",
+        "ordinal": 3,
+        "type_info": "Float"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "88ee3f571f8dd64e3388bcb234d7ec28a4a354ff0ee663b73b5520790323d4b9"
+}

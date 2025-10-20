@@ -84,6 +84,20 @@ cargo run -- --help # Show CLI options
     cargo build
     ```
 
+**Note:** This project uses sqlx with offline mode. The `.sqlx/` directory contains pre-compiled query metadata, allowing the project to build without requiring a live database connection during compilation. If you modify SQL queries in the code, you'll need to regenerate this metadata:
+
+```sh
+# Install sqlx-cli if not already installed
+cargo install sqlx-cli --no-default-features --features sqlite
+
+# Create database and run migrations
+sqlx database create
+sqlx migrate run
+
+# Regenerate query metadata
+cargo sqlx prepare
+```
+
 ### Configuration
 
 All configuration is done through environment variables. Copy `.env.example` to `.env` and modify as needed:
@@ -95,7 +109,7 @@ DB_URL=sqlite:poe_items.db            # Alternative database URL
 
 # API Configuration
 TRADE_BASE_URL=https://www.pathofexile.com  # POE trade API base URL
-USER_AGENT=POE2-Scraper/0.1.0               # HTTP User-Agent string
+USER_AGENT="POE2-Scraper/0.1.0 (https://github.com/majorelk/rust-poe2-scraper)"  # HTTP User-Agent (quoted)
 
 # Rate Limiting
 REQUESTS_PER_MIN=60          # Maximum API requests per minute

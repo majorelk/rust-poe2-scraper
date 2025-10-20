@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT raw_data FROM listings WHERE id = ?\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "raw_data",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "11b735d9d9f7eec6ce596049ed12d48c1410583b6d51e0dcda189a54e77037c4"
+}

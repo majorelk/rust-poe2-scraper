@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO item_modifiers (\n                    item_id, modifier_id, modifier_values\n                ) VALUES (?, ?, ?)\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "58f4f9df39ef7a93760266586cba6b59ebfcb5fa2ab877e8f5cf2bf246e15050"
+}
