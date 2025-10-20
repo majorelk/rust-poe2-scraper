@@ -33,6 +33,7 @@ impl Normalizer {
     /// Run normalization and store results
     pub async fn normalize(&self) -> Result<Vec<NormalizedModStat>> {
         info!("Starting normalization pass");
+        let start = std::time::Instant::now();
 
         // Group modifiers by name
         let modifier_groups = self.group_modifiers_by_name().await?;
@@ -55,6 +56,10 @@ impl Normalizer {
 
         // Store results
         self.store_normalized_stats(&normalized_stats).await?;
+
+        // Record metrics
+        let duration_ms = start.elapsed().as_millis() as u64;
+        crate::metrics::Metrics::record_normalization(normalized_stats.len(), duration_ms);
 
         Ok(normalized_stats)
     }

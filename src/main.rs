@@ -22,6 +22,7 @@ mod data;
 mod db;
 mod errors;
 mod fetcher;
+mod metrics;
 mod model;
 mod models;
 mod net;
@@ -55,6 +56,10 @@ struct Args {
     /// Run normalization pass on scraped data
     #[clap(long)]
     normalize: bool,
+
+    /// Enable metrics server (e.g., --metrics 0.0.0.0:9464)
+    #[clap(long)]
+    metrics: Option<String>,
 }
 
 async fn initialize_base_loader() -> Result<BaseDataLoader> {
@@ -103,6 +108,14 @@ fn main() -> Result<()> {
         .context("Failed to create Tokio runtime")?
         .block_on(async {
             let args = Args::parse();
+
+            // Initialize metrics if requested
+            if let Some(metrics_addr) = &args.metrics {
+                let addr: std::net::SocketAddr = metrics_addr
+                    .parse()
+                    .context("Invalid metrics address")?;
+                metrics::init_metrics(addr)?;
+            }
 
             info!("Starting POE2 scraper");
             info!("League: {}", args.league);

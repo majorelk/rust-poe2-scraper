@@ -158,6 +158,9 @@ impl Db {
             }
         }
 
+        // Record metrics
+        crate::metrics::Metrics::record_db_write("listings", true);
+
         Ok(inserted)
     }
 

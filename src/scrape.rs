@@ -58,6 +58,9 @@ impl Scraper {
         let source_url = format!("{}/api/trade2/search", self.config.trade_base_url);
         let mut meta = ScrapeMeta::new(source_url.clone(), Some("trade".to_string()));
 
+        // Update active scrapes metric
+        crate::metrics::Metrics::set_active_scrapes(1);
+
         // Begin scrape run
         self.db
             .begin_scrape_run(&meta)
@@ -82,6 +85,7 @@ impl Scraper {
                 warn!("Scrape run failed: {}", e);
                 meta.add_error(e.to_string());
                 meta.complete();
+                crate::metrics::Metrics::record_error("scrape_failure");
             }
         }
 
@@ -90,6 +94,14 @@ impl Scraper {
             .end_scrape_run(&meta)
             .await
             .context("Failed to end scrape run")?;
+
+        // Record metrics
+        crate::metrics::Metrics::record_items_processed(meta.items_processed);
+        crate::metrics::Metrics::record_items_saved(meta.items_saved);
+        if let Some(duration_ms) = meta.duration_ms {
+            crate::metrics::Metrics::record_scrape_duration(duration_ms);
+        }
+        crate::metrics::Metrics::set_active_scrapes(0);
 
         Ok(meta)
     }
