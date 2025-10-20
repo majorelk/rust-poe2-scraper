@@ -60,6 +60,10 @@ struct Args {
     /// Enable metrics server (e.g., --metrics 0.0.0.0:9464)
     #[clap(long)]
     metrics: Option<String>,
+
+    /// Dry run mode - log intent without making network calls
+    #[clap(long)]
+    dry_run: bool,
 }
 
 async fn initialize_base_loader() -> Result<BaseDataLoader> {
@@ -131,9 +135,16 @@ fn main() -> Result<()> {
                     .await
                     .context("Failed to load query file")?;
                 
-                let mut scraper = scrape::Scraper::new(config)
-                    .await
-                    .context("Failed to create scraper")?;
+                let mut scraper = if args.dry_run {
+                    info!("Running in DRY RUN mode - no network calls will be made");
+                    scrape::Scraper::new_dry_run(config)
+                        .await
+                        .context("Failed to create scraper")?
+                } else {
+                    scrape::Scraper::new(config)
+                        .await
+                        .context("Failed to create scraper")?
+                };
                 
                 let meta = scraper
                     .scrape(&query)

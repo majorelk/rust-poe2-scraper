@@ -35,6 +35,7 @@ pub struct Scraper {
     http_client: HttpClient,
     db: Db,
     config: Config,
+    dry_run: bool,
 }
 
 impl Scraper {
@@ -50,7 +51,15 @@ impl Scraper {
             http_client,
             db,
             config,
+            dry_run: false,
         })
+    }
+
+    /// Create a scraper in dry-run mode
+    pub async fn new_dry_run(config: Config) -> Result<Self> {
+        let mut scraper = Self::new(config).await?;
+        scraper.dry_run = true;
+        Ok(scraper)
     }
 
     /// Execute a scrape run with the given query
@@ -109,9 +118,19 @@ impl Scraper {
     /// Internal method to execute the actual scraping
     async fn execute_scrape(
         &mut self,
-        _query: &SearchQuery,
+        query: &SearchQuery,
         meta: &mut ScrapeMeta,
     ) -> Result<()> {
+        if self.dry_run {
+            info!("DRY RUN: Would scrape with query: {:?}", query);
+            info!("DRY RUN: Would make API request to: {}/api/trade2/search", self.config.trade_base_url);
+            info!("DRY RUN: Would parse response and persist to database");
+            meta.page_count = 1;
+            meta.items_processed = 0;
+            meta.items_saved = 0;
+            return Ok(());
+        }
+
         // For now, this is a placeholder that would:
         // 1. Hit the trade API endpoint with the query
         // 2. Parse the response

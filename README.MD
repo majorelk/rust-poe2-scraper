@@ -142,7 +142,17 @@ cargo run -- --scrape-query @examples/entry-level.json --metrics 0.0.0.0:9464
 # Access metrics at http://localhost:9464/metrics
 ```
 
-#### 4. Legacy Commands (for existing workflows)
+#### 4. Dry Run Mode (Safety Rails)
+
+```bash
+# Test scraping without making network calls
+cargo run -- --scrape-query @examples/entry-level.json --dry-run
+
+# Logs intent without executing
+# Useful for testing configuration and query files
+```
+
+#### 5. Legacy Commands (for existing workflows)
 
 ```bash
 # Collect data (legacy)
@@ -186,6 +196,8 @@ curl http://localhost:9464/metrics
 - **Idempotent database writes**: Uses `INSERT OR IGNORE` and unique constraints to prevent duplicates
 - **Robust error handling**: Uses `anyhow` and `thiserror` for comprehensive error context
 - **No `.unwrap()` calls**: All error handling is explicit and graceful
+- **Safety rails**: Dry-run mode for testing without making network calls
+- **Respectful scraping**: Respects rate limits and provides clear user identification
 
 #### Data Pipeline
 - **SQLite persistence**: Comprehensive schema with migrations for listings, modifiers, and audit trails
