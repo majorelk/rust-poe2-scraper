@@ -25,6 +25,7 @@ mod fetcher;
 mod model;
 mod models;
 mod net;
+mod scrape;
 mod storage;
 mod telemetry;
 
@@ -45,6 +46,10 @@ struct Args {
 
     #[clap(long)]
     collect_data: bool,
+
+    /// Run a scrape with query from a JSON file (e.g., @examples/entry-level.json)
+    #[clap(long)]
+    scrape_query: Option<String>,
 }
 
 async fn initialize_base_loader() -> Result<BaseDataLoader> {
@@ -96,6 +101,34 @@ fn main() -> Result<()> {
 
             info!("Starting POE2 scraper");
             info!("League: {}", args.league);
+
+            // Handle scrape query if provided
+            if let Some(query_file) = &args.scrape_query {
+                info!("Loading scrape query from: {}", query_file);
+                
+                // Remove @ prefix if present
+                let file_path = query_file.trim_start_matches('@');
+                
+                let query = scrape::SearchQuery::from_file(file_path)
+                    .await
+                    .context("Failed to load query file")?;
+                
+                let mut scraper = scrape::Scraper::new(config)
+                    .await
+                    .context("Failed to create scraper")?;
+                
+                let meta = scraper
+                    .scrape(&query)
+                    .await
+                    .context("Failed to execute scrape")?;
+                
+                info!(
+                    "Scrape complete: run_id={}, items_processed={}, items_saved={}, duration_ms={:?}",
+                    meta.run_id, meta.items_processed, meta.items_saved, meta.duration_ms
+                );
+                
+                return Ok(());
+            }
 
             // Initialize database first
             let db = Database::initialize()

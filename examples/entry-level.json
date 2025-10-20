@@ -1,0 +1,7 @@
+{
+  "league": "Standard",
+  "item_type": "weapon",
+  "min_price": 1.0,
+  "max_price": 50.0,
+  "online_only": true
+}
