@@ -25,6 +25,7 @@ mod fetcher;
 mod model;
 mod models;
 mod net;
+mod normalize;
 mod scrape;
 mod storage;
 mod telemetry;
@@ -50,6 +51,10 @@ struct Args {
     /// Run a scrape with query from a JSON file (e.g., @examples/entry-level.json)
     #[clap(long)]
     scrape_query: Option<String>,
+
+    /// Run normalization pass on scraped data
+    #[clap(long)]
+    normalize: bool,
 }
 
 async fn initialize_base_loader() -> Result<BaseDataLoader> {
@@ -126,6 +131,26 @@ fn main() -> Result<()> {
                     "Scrape complete: run_id={}, items_processed={}, items_saved={}, duration_ms={:?}",
                     meta.run_id, meta.items_processed, meta.items_saved, meta.duration_ms
                 );
+                
+                return Ok(());
+            }
+
+            // Handle normalize command
+            if args.normalize {
+                info!("Running normalization pass");
+                
+                let pool = sqlx::sqlite::SqlitePool::connect(&config.db_url)
+                    .await
+                    .context("Failed to connect to database")?;
+                
+                let normalizer = normalize::Normalizer::new(pool);
+                let stats = normalizer
+                    .normalize()
+                    .await
+                    .context("Failed to run normalization")?;
+                
+                info!("Normalization complete");
+                normalizer.print_histogram(&stats);
                 
                 return Ok(());
             }
