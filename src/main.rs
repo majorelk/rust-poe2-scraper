@@ -21,6 +21,7 @@ mod config;
 mod data;
 mod errors;
 mod fetcher;
+mod model;
 mod models;
 mod net;
 mod storage;

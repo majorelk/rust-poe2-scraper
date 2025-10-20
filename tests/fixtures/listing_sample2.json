@@ -1,0 +1,13 @@
+{
+  "id": "sample-listing-456",
+  "item": {
+    "base_type": "Leather Belt",
+    "type_line": "Leather Belt",
+    "item_level": 45,
+    "rarity": "magic",
+    "modifiers": []
+  },
+  "account": {
+    "name": "AnotherTrader"
+  }
+}
