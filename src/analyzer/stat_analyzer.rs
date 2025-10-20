@@ -361,9 +361,10 @@ impl StatAnalyzer {
 mod tests {
     use super::*;
     use crate::models::cleaned_item::{ExplicitMod, ItemProperty, ItemRequirement, ModInfo};
-    use crate::models::item::Item;
+    use crate::models::item::{Item, ItemModifier};
     use crate::models::item_type::{ItemCategory, ItemRarity, ItemType};
     use crate::models::poe_item::Magnitude;
+    use crate::models::stats_requirements::CoreAttribute;
 
     #[test]
     fn test_stat_analyzer_basic_functionality() {
@@ -400,39 +401,6 @@ mod tests {
         analyzer.process_item(&item);
 
         // Verify analysis
-        let report = analyzer.generate_attribute_report();
-        assert_eq!(report["total_items_analyzed"], 1);
-    }
-
-    #[test]
-    fn test_stat_analyzer_basic_functionality() {
-        let mut analyzer = StatAnalyzer::new();
-
-        let mut item = Item::new(
-            "test_item".to_string(),
-            ItemType::new(
-                ItemCategory::Armour,
-                "Test Base".to_string(),
-                ItemRarity::Rare,
-            ),
-        );
-
-        item.stat_requirements
-            .add_requirement(CoreAttribute::Strength, 100);
-        item.attribute_values.insert(CoreAttribute::Strength, 100);
-
-        let modifier = ItemModifier {
-            name: "Test Modifier".to_string(),
-            tier: Some(1),
-            values: vec![10.0],
-            is_crafted: false,
-            stat_requirements: None,
-            attribute_scaling: None,
-        };
-
-        item.modifiers.push(modifier);
-        analyzer.process_item(&item);
-
         let report = analyzer.generate_attribute_report();
         assert_eq!(report["total_items_analyzed"], 1);
     }
