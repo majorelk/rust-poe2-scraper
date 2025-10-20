@@ -1,42 +1,34 @@
-use std::fmt;
-use std::error::Error;
-use sqlx::migrate::MigrateError;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
+#[allow(clippy::enum_variant_names)]
 pub enum ScraperError {
+    #[error("API error: {0}")]
     ApiError(String),
+
+    #[error("Parse error: {0}")]
     ParseError(String),
+
+    #[error("Validation error: {0}")]
     ValidationError(String),
+
+    #[error("Rate limit error: {0}")]
     RateLimitError(String),
-    NetworkError(String),
-    IoError(String),
+
+    #[error("Network error: {0}")]
+    NetworkError(#[from] reqwest::Error),
+
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
+
+    #[error("Database error: {0}")]
     DatabaseError(String),
+
+    #[error("Migration error: {0}")]
     MigrationError(String),
+
+    #[error("Conversion error: {0}")]
     ConversionError(String),
-}
-
-impl fmt::Display for ScraperError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ScraperError::ApiError(msg) => write!(f, "API Error: {}", msg),
-            ScraperError::ParseError(msg) => write!(f, "Parse Error: {}", msg),
-            ScraperError::ValidationError(msg) => write!(f, "Validation Error: {}", msg),
-            ScraperError::RateLimitError(msg) => write!(f, "Rate Limit Error: {}", msg),
-            ScraperError::NetworkError(msg) => write!(f, "Network Error: {}", msg),
-            ScraperError::IoError(msg) => write!(f, "IO Error: {}", msg),
-            ScraperError::DatabaseError(msg) => write!(f, "Database Error: {}", msg),
-            ScraperError::MigrationError(msg) => write!(f, "Migration Error: {}", msg),
-            ScraperError::ConversionError(msg) => write!(f, "Conversion Error: {}", msg),
-        }
-    }
-}
-
-impl Error for ScraperError {}
-
-impl From<reqwest::Error> for ScraperError {
-    fn from(err: reqwest::Error) -> Self {
-        ScraperError::NetworkError(err.to_string())
-    }
 }
 
 impl From<serde_json::Error> for ScraperError {
@@ -45,17 +37,10 @@ impl From<serde_json::Error> for ScraperError {
     }
 }
 
-impl From<std::io::Error> for ScraperError {
-    fn from(err: std::io::Error) -> Self {
-        ScraperError::IoError(err.to_string())
-    }
-}
-
 impl From<sqlx::Error> for ScraperError {
     fn from(err: sqlx::Error) -> Self {
         match err {
             sqlx::Error::Database(db_err) => {
-                // Handle specific database errors like constraint violations
                 ScraperError::DatabaseError(format!("Database error: {}", db_err))
             }
             sqlx::Error::RowNotFound => {
@@ -64,11 +49,10 @@ impl From<sqlx::Error> for ScraperError {
             sqlx::Error::ColumnNotFound(col_name) => {
                 ScraperError::DatabaseError(format!("Column not found: {}", col_name))
             }
-            sqlx::Error::ColumnDecode { index, source } => {
-                ScraperError::DatabaseError(
-                    format!("Failed to decode column {}: {}", index, source)
-                )
-            }
+            sqlx::Error::ColumnDecode { index, source } => ScraperError::DatabaseError(format!(
+                "Failed to decode column {}: {}",
+                index, source
+            )),
             sqlx::Error::Decode(desc) => {
                 ScraperError::DatabaseError(format!("Decode error: {}", desc))
             }
@@ -83,23 +67,19 @@ impl From<sqlx::Error> for ScraperError {
     }
 }
 
-impl From<MigrateError> for ScraperError {
-    fn from(err: MigrateError) -> Self {
+impl From<sqlx::migrate::MigrateError> for ScraperError {
+    fn from(err: sqlx::migrate::MigrateError) -> Self {
         match err {
-            MigrateError::Source(source_err) => {
-                // Handle errors that occurred during migration execution
+            sqlx::migrate::MigrateError::Source(source_err) => {
                 ScraperError::MigrationError(format!("Migration source error: {}", source_err))
             }
-            MigrateError::VersionMismatch(version) => {
-                // Handle version mismatch with the single version number provided
-                ScraperError::MigrationError(format!("Migration version mismatch at version {}", version))
-            }
-            MigrateError::Dirty(version) => {
-                // Handle cases where a migration failed and left the database in a "dirty" state
-                ScraperError::MigrationError(
-                    format!("Database left in dirty state at version {}", version)
-                )
-            }
+            sqlx::migrate::MigrateError::VersionMismatch(version) => ScraperError::MigrationError(
+                format!("Migration version mismatch at version {}", version),
+            ),
+            sqlx::migrate::MigrateError::Dirty(version) => ScraperError::MigrationError(format!(
+                "Database left in dirty state at version {}",
+                version
+            )),
             _ => ScraperError::MigrationError(format!("Other migration error: {}", err)),
         }
     }

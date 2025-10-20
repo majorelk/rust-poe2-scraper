@@ -1,19 +1,18 @@
-use std::collections::{HashMap, HashSet};
-use serde::{Serialize, Deserialize};
-use serde_json::json;
-use crate::models::{
-    ItemResponse,
-    CleanedItem,
-};
 use crate::models::poe_item::ModBase;
+use crate::models::{CleanedItem, ItemResponse};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 
+#[allow(dead_code)]
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub enum StatRequirementType {
     Single(String),
     Dual(String, String),
 }
 
+#[allow(dead_code)]
 pub trait ModInfoLike {
     fn get_name(&self) -> &str;
     fn get_tier(&self) -> &str;
@@ -51,6 +50,7 @@ impl ModInfoLike for ModBase {
     }
 }
 
+#[allow(dead_code)]
 impl StatAnalyzer {
     pub fn new() -> Self {
         Self {
@@ -72,38 +72,40 @@ impl StatAnalyzer {
         let item_attributes: HashSet<_> = stat_requirements.keys().collect();
 
         for mod_info in &item.item.extended.mods.explicit {
-            self.update_modifier_stats(
-                mod_info.deref(),
-                &item_attributes,
-                &stat_requirements
-            );
+            self.update_modifier_stats(mod_info.deref(), &item_attributes, &stat_requirements);
         }
 
         self.update_modifier_correlations(
-            &item.item.extended.mods.explicit
+            &item
+                .item
+                .extended
+                .mods
+                .explicit
                 .iter()
                 .map(|m| m.deref())
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         );
     }
 
     fn update_modifier_stats(
         &mut self,
-        mod_info: &ModBase,  
+        mod_info: &ModBase,
         item_attributes: &HashSet<&String>,
-        stat_requirements: &HashMap<String, u32>
+        stat_requirements: &HashMap<String, u32>,
     ) {
-        let mod_occurrences = self.modifier_attribute_occurrences
+        let mod_occurrences = self
+            .modifier_attribute_occurrences
             .entry(mod_info.get_name().to_string())
             .or_default();
-        
-        let mod_thresholds = self.modifier_thresholds
+
+        let mod_thresholds = self
+            .modifier_thresholds
             .entry(mod_info.get_name().to_string())
             .or_default();
-    
+
         for attr in item_attributes {
             *mod_occurrences.entry((*attr).clone()).or_default() += 1;
-            
+
             if let Some(&value) = stat_requirements.get(*attr) {
                 mod_thresholds
                     .entry((*attr).clone())
@@ -112,21 +114,25 @@ impl StatAnalyzer {
             }
         }
     }
-    
+
     fn update_modifier_correlations(&mut self, mods: &[&ModBase]) {
         for (i, mod1) in mods.iter().enumerate() {
             for mod2 in mods.iter().skip(i + 1) {
-                let correlations = self.modifier_correlations
+                let correlations = self
+                    .modifier_correlations
                     .entry(mod1.get_name().to_string())
                     .or_default();
-                
+
                 *correlations.entry(mod2.get_name().to_string()).or_default() += 1;
-    
-                let reverse_correlations = self.modifier_correlations
+
+                let reverse_correlations = self
+                    .modifier_correlations
                     .entry(mod2.get_name().to_string())
                     .or_default();
-                
-                *reverse_correlations.entry(mod1.get_name().to_string()).or_default() += 1;
+
+                *reverse_correlations
+                    .entry(mod1.get_name().to_string())
+                    .or_default() += 1;
             }
         }
     }
@@ -142,23 +148,16 @@ impl StatAnalyzer {
         let item_attributes: HashSet<_> = stat_requirements.keys().collect();
 
         for mod_info in &item.mod_info.explicit {
-            self.update_modifier_stats(
-                mod_info.deref(),
-                &item_attributes,
-                &stat_requirements
-            );
+            self.update_modifier_stats(mod_info.deref(), &item_attributes, &stat_requirements);
         }
 
-        let mod_refs: Vec<&ModBase> = item.mod_info.explicit
-        .iter()
-        .map(|m| m.deref())
-        .collect();
-    self.update_modifier_correlations(&mod_refs);
+        let mod_refs: Vec<&ModBase> = item.mod_info.explicit.iter().map(|m| m.deref()).collect();
+        self.update_modifier_correlations(&mod_refs);
     }
 
     fn process_requirements(&mut self, item: &ItemResponse) {
         let mut item_reqs = Vec::new();
-        
+
         // Collect all attribute requirements
         for req in &item.item.requirements {
             match req.name.as_str() {
@@ -172,7 +171,7 @@ impl StatAnalyzer {
                 _ => {}
             }
         }
-        
+
         // Sort requirements for consistent ordering
         item_reqs.sort_by(|a, b| a.0.cmp(&b.0));
 
@@ -180,17 +179,17 @@ impl StatAnalyzer {
         match item_reqs.len() {
             1 => {
                 let req_type = StatRequirementType::Single(item_reqs[0].0.clone());
-                self.requirement_distributions.entry(req_type)
-                    .or_insert_with(Vec::new)
+                self.requirement_distributions
+                    .entry(req_type)
+                    .or_default()
                     .push((item_reqs[0].1, 0));
             }
             2 => {
-                let req_type = StatRequirementType::Dual(
-                    item_reqs[0].0.clone(),
-                    item_reqs[1].0.clone()
-                );
-                self.requirement_distributions.entry(req_type)
-                    .or_insert_with(Vec::new)
+                let req_type =
+                    StatRequirementType::Dual(item_reqs[0].0.clone(), item_reqs[1].0.clone());
+                self.requirement_distributions
+                    .entry(req_type)
+                    .or_default()
                     .push((item_reqs[0].1, item_reqs[1].1));
             }
             _ => {}
@@ -199,7 +198,7 @@ impl StatAnalyzer {
 
     fn process_cleaned_requirements(&mut self, item: &CleanedItem) {
         let mut item_reqs = Vec::new();
-        
+
         // Collect all attribute requirements from cleaned item
         for req in &item.requirements {
             match req.name.as_str() {
@@ -213,7 +212,7 @@ impl StatAnalyzer {
                 _ => {}
             }
         }
-        
+
         // Sort requirements for consistent ordering (same as original)
         item_reqs.sort_by(|a, b| a.0.cmp(&b.0));
 
@@ -221,17 +220,17 @@ impl StatAnalyzer {
         match item_reqs.len() {
             1 => {
                 let req_type = StatRequirementType::Single(item_reqs[0].0.clone());
-                self.requirement_distributions.entry(req_type)
-                    .or_insert_with(Vec::new)
+                self.requirement_distributions
+                    .entry(req_type)
+                    .or_default()
                     .push((item_reqs[0].1, 0));
             }
             2 => {
-                let req_type = StatRequirementType::Dual(
-                    item_reqs[0].0.clone(),
-                    item_reqs[1].0.clone()
-                );
-                self.requirement_distributions.entry(req_type)
-                    .or_insert_with(Vec::new)
+                let req_type =
+                    StatRequirementType::Dual(item_reqs[0].0.clone(), item_reqs[1].0.clone());
+                self.requirement_distributions
+                    .entry(req_type)
+                    .or_default()
                     .push((item_reqs[0].1, item_reqs[1].1));
             }
             _ => {}
@@ -243,23 +242,23 @@ impl StatAnalyzer {
 
         for (modifier_name, attr_occurrences) in &self.modifier_attribute_occurrences {
             for (attr, &count) in attr_occurrences {
-                let correlation = correlations
-                    .entry(attr.clone())
-                    .or_insert_with(|| AttributeCorrelation {
-                        attribute: attr.clone(),
-                        occurrence_count: 0,
-                        average_threshold: 0.0,
-                        modifier_correlations: HashMap::new(),
-                    });
+                let correlation =
+                    correlations
+                        .entry(attr.clone())
+                        .or_insert_with(|| AttributeCorrelation {
+                            attribute: attr.clone(),
+                            occurrence_count: 0,
+                            average_threshold: 0.0,
+                            modifier_correlations: HashMap::new(),
+                        });
 
                 correlation.occurrence_count += count;
 
                 // Calculate correlation strength (simplified version)
                 let correlation_strength = count as f64 / self.total_items as f64;
-                correlation.modifier_correlations.insert(
-                    modifier_name.clone(),
-                    correlation_strength
-                );
+                correlation
+                    .modifier_correlations
+                    .insert(modifier_name.clone(), correlation_strength);
             }
         }
 
@@ -283,19 +282,18 @@ impl StatAnalyzer {
         correlations
     }
 
-    pub fn get_common_modifier_pairs(&self, minimum_correlation: f64) -> Vec<(String, String, f64)> {
+    pub fn get_common_modifier_pairs(
+        &self,
+        minimum_correlation: f64,
+    ) -> Vec<(String, String, f64)> {
         let mut common_pairs = Vec::new();
 
         for (mod1, correlations) in &self.modifier_correlations {
             for (mod2, &count) in correlations {
                 let correlation_strength = count as f64 / self.total_items as f64;
-                
+
                 if correlation_strength >= minimum_correlation {
-                    common_pairs.push((
-                        mod1.clone(),
-                        mod2.clone(),
-                        correlation_strength
-                    ));
+                    common_pairs.push((mod1.clone(), mod2.clone(), correlation_strength));
                 }
             }
         }
@@ -315,18 +313,19 @@ impl StatAnalyzer {
         for (req_type, values) in &self.requirement_distributions {
             match req_type {
                 StatRequirementType::Single(stat) => {
-                    let avg = values.iter()
-                        .map(|(v, _)| v)
-                        .sum::<u32>() as f64 / values.len() as f64;
-                    
+                    let avg =
+                        values.iter().map(|(v, _)| v).sum::<u32>() as f64 / values.len() as f64;
+
                     stats["single_stat_counts"][stat.clone()] = json!(values.len());
                     stats["average_requirements"][stat] = json!(avg);
                 }
                 StatRequirementType::Dual(stat1, stat2) => {
                     let key = format!("{}-{}", stat1, stat2);
-                    let avg1 = values.iter().map(|(v1, _)| v1).sum::<u32>() as f64 / values.len() as f64;
-                    let avg2 = values.iter().map(|(_, v2)| v2).sum::<u32>() as f64 / values.len() as f64;
-                    
+                    let avg1 =
+                        values.iter().map(|(v1, _)| v1).sum::<u32>() as f64 / values.len() as f64;
+                    let avg2 =
+                        values.iter().map(|(_, v2)| v2).sum::<u32>() as f64 / values.len() as f64;
+
                     stats["dual_stat_counts"][key.clone()] = json!(values.len());
                     stats["average_requirements"][format!("{}-1", key)] = json!(avg1);
                     stats["average_requirements"][format!("{}-2", key)] = json!(avg2);
@@ -350,8 +349,8 @@ impl StatAnalyzer {
                 "strongest_attribute": correlations.iter()
                     .max_by_key(|(_, c)| c.occurrence_count)
                     .map(|(attr, _)| attr),
-                "most_common_threshold": correlations.iter()
-                    .map(|(_, c)| c.average_threshold.round() as u32)
+                "most_common_threshold": correlations.values()
+                    .map(|c| c.average_threshold.round() as u32)
                     .max()
             }
         })
@@ -361,24 +360,25 @@ impl StatAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::item_type::{ItemType, ItemCategory, ItemRarity};
+    use crate::models::item_type::{ItemCategory, ItemRarity, ItemType};
 
     #[test]
     fn test_stat_analyzer_basic_functionality() {
         let mut analyzer = StatAnalyzer::new();
-        
+
         // Create a test item with some modifiers
         let mut item = Item::new(
             "test_item".to_string(),
             ItemType::new(
                 ItemCategory::Armour,
                 "Test Base".to_string(),
-                ItemRarity::Rare
-            )
+                ItemRarity::Rare,
+            ),
         );
 
         // Add stat requirements
-        item.stat_requirements.add_requirement(CoreAttribute::Strength, 100);
+        item.stat_requirements
+            .add_requirement(CoreAttribute::Strength, 100);
         item.attribute_values.insert(CoreAttribute::Strength, 100);
 
         // Add some modifiers
@@ -401,20 +401,21 @@ mod tests {
         assert_eq!(report["total_items_analyzed"], 1);
     }
 
-        #[test]
+    #[test]
     fn test_stat_analyzer_basic_functionality() {
         let mut analyzer = StatAnalyzer::new();
-        
+
         let mut item = Item::new(
             "test_item".to_string(),
             ItemType::new(
                 ItemCategory::Armour,
                 "Test Base".to_string(),
-                ItemRarity::Rare
-            )
+                ItemRarity::Rare,
+            ),
         );
 
-        item.stat_requirements.add_requirement(CoreAttribute::Strength, 100);
+        item.stat_requirements
+            .add_requirement(CoreAttribute::Strength, 100);
         item.attribute_values.insert(CoreAttribute::Strength, 100);
 
         let modifier = ItemModifier {
@@ -458,33 +459,27 @@ mod tests {
                         display_mode: 0,
                     },
                 ],
-                requirements: vec![
-                    Requirement {
-                        name: "[Strength|Str]".to_string(),
-                        values: vec![("105".to_string(), 0)],
-                        display_mode: 1,
-                    }
-                ],
+                requirements: vec![Requirement {
+                    name: "[Strength|Str]".to_string(),
+                    values: vec![("105".to_string(), 0)],
+                    display_mode: 1,
+                }],
                 extended: ExtendedData {
                     mods: ModData {
-                        explicit: vec![
-                            ExplicitMod {
-                                level: 33,
-                                magnitudes: vec![Magnitude {
-                                    hash: "explicit.stat_4080418644".to_string(),
-                                    max: "20".to_string(),
-                                    min: "17".to_string(),
-                                }],
-                                name: "of the Lion".to_string(),
-                                tier: "R4".to_string(),
-                            }
-                        ]
+                        explicit: vec![ExplicitMod {
+                            level: 33,
+                            magnitudes: vec![Magnitude {
+                                hash: "explicit.stat_4080418644".to_string(),
+                                max: "20".to_string(),
+                                min: "17".to_string(),
+                            }],
+                            name: "of the Lion".to_string(),
+                            tier: "R4".to_string(),
+                        }],
                     },
                     hashes: HashData {
-                        explicit: vec![
-                            ("explicit.stat_4080418644".to_string(), vec![vec![2]])
-                        ],
-                    }
+                        explicit: vec![("explicit.stat_4080418644".to_string(), vec![vec![2]])],
+                    },
                 },
                 name: "Fate Suit".to_string(),
                 rarity: "Rare".to_string(),
@@ -498,8 +493,8 @@ mod tests {
                 account: Account {
                     name: "TestAccount".to_string(),
                     realm: "poe2".to_string(),
-                }
-            }
+                },
+            },
         }
     }
 
@@ -526,32 +521,27 @@ mod tests {
                     display_mode: 0,
                 },
             ],
-            requirements: vec![
-                ItemRequirement {
-                    name: "[Strength|Str]".to_string(),
-                    values: vec![("105".to_string(), 0)],
-                    display_mode: 1,
-                }
-            ],
+            requirements: vec![ItemRequirement {
+                name: "[Strength|Str]".to_string(),
+                values: vec![("105".to_string(), 0)],
+                display_mode: 1,
+            }],
             mod_info: ModInfo {
-                explicit: vec![
-                    ExplicitMod {
-                        level: 33,
-                        magnitudes: vec![
-                            Magnitude {
-                                hash: "explicit.stat_4080418644".to_string(),
-                                max: "20".to_string(),
-                                min: "17".to_string(),
-                            }
-                        ],
-                        name: "of the Lion".to_string(),
-                        tier: "R4".to_string(),
-                    }
-                ],
+                explicit: vec![ExplicitMod {
+                    level: 33,
+                    magnitudes: vec![Magnitude {
+                        hash: "explicit.stat_4080418644".to_string(),
+                        max: "20".to_string(),
+                        min: "17".to_string(),
+                    }],
+                    name: "of the Lion".to_string(),
+                    tier: "R4".to_string(),
+                }],
             },
-            mod_hashes: HashMap::from_iter(vec![
-                ("explicit.stat_4080418644".to_string(), vec![vec![2]])
-            ]),
+            mod_hashes: HashMap::from_iter(vec![(
+                "explicit.stat_4080418644".to_string(),
+                vec![vec![2]],
+            )]),
         }
     }
 
@@ -565,7 +555,9 @@ mod tests {
         assert_eq!(report["total_items_analyzed"], 1);
 
         let req_stats = analyzer.get_requirement_statistics();
-        assert!(req_stats["single_stat_counts"].get("[Strength|Str]").is_some());
+        assert!(req_stats["single_stat_counts"]
+            .get("[Strength|Str]")
+            .is_some());
     }
 
     #[test]
@@ -586,10 +578,10 @@ mod tests {
             report_original["total_items_analyzed"],
             report_cleaned["total_items_analyzed"]
         );
-        
+
         let stats_original = analyzer_original.get_requirement_statistics();
         let stats_cleaned = analyzer_cleaned.get_requirement_statistics();
-        
+
         assert_eq!(
             stats_original["single_stat_counts"],
             stats_cleaned["single_stat_counts"]

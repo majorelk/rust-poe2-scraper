@@ -1,15 +1,8 @@
-use sqlx::{sqlite::SqlitePool, migrate::MigrateDatabase, Transaction, Sqlite};
-use crate::models::{
-    Item, 
-    ItemModifier, 
-    ItemBaseType,
-    ItemCategory,
-    StatRequirements,
-    CoreAttribute
-};
 use crate::errors::Result;
-use std::collections::HashMap;
+use crate::models::{Item, ItemBaseType, ItemModifier};
 use crate::ScraperError;
+use sqlx::{migrate::MigrateDatabase, sqlite::SqlitePool, Sqlite, Transaction};
+use tracing::{debug, info, warn};
 
 const DEFAULT_DATABASE_URL: &str = "sqlite:poe_items.db";
 
@@ -19,34 +12,29 @@ pub struct Database {
 
 impl Database {
     pub async fn initialize() -> Result<Self> {
-        let database_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_string());
-        
+        let database_url =
+            std::env::var("DATABASE_URL").unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_string());
+
         if !sqlx::Sqlite::database_exists(&database_url).await? {
-            println!("Creating new database at {}", database_url);
+            info!("Creating new database at {}", database_url);
             sqlx::Sqlite::create_database(&database_url).await?;
         }
-        
+
         let pool = SqlitePool::connect(&database_url).await?;
-        
-        println!("Running database migrations...");
-        sqlx::migrate!("./migrations")
-            .run(&pool)
-            .await?;
-        
+
+        info!("Running database migrations");
+        sqlx::migrate!("./migrations").run(&pool).await?;
+
         Ok(Self { pool })
     }
 
     pub async fn store_base_item(&self, base_item: &ItemBaseType) -> Result<i64> {
         let mut tx = self.pool.begin().await?;
-        
+
         // First check if base item exists
-        let existing_row = sqlx::query!(
-            "SELECT id FROM base_items WHERE name = ?",
-            base_item.name
-        )
-        .fetch_optional(&mut *tx)
-        .await?;
+        let existing_row = sqlx::query!("SELECT id FROM base_items WHERE name = ?", base_item.name)
+            .fetch_optional(&mut *tx)
+            .await?;
 
         // Prepare all our data before using it in queries
         let stat_requirements_json = serde_json::to_string(&base_item.stat_requirements)?;
@@ -78,7 +66,7 @@ impl Database {
             )
             .execute(&mut *tx)
             .await?;
-            
+
             row.id.expect("Database returned null ID")
         } else {
             // Insert new base item
@@ -99,7 +87,7 @@ impl Database {
             )
             .execute(&mut *tx)
             .await?;
-            
+
             result.last_insert_rowid()
         };
 
@@ -107,26 +95,29 @@ impl Database {
         Ok(id)
     }
 
-    async fn ensure_modifier(&self, modifier: &ItemModifier, tx: &mut Transaction<'_, Sqlite>) -> Result<i64> {
-        let existing_row = sqlx::query!(
-            "SELECT id FROM modifiers WHERE name = ?",
-            modifier.name
-        )
-        .fetch_optional(&mut **tx)
-        .await?;
+    async fn ensure_modifier(
+        &self,
+        modifier: &ItemModifier,
+        tx: &mut Transaction<'_, Sqlite>,
+    ) -> Result<i64> {
+        let existing_row = sqlx::query!("SELECT id FROM modifiers WHERE name = ?", modifier.name)
+            .fetch_optional(&mut **tx)
+            .await?;
 
         match existing_row {
             Some(row) => Ok(row.id.expect("Database returned null ID")),
             None => {
                 // Prepare all data before using in query
                 let values_json = serde_json::to_string(&modifier.values)?;
-                let stat_requirements_json = modifier.stat_requirements
+                let stat_requirements_json = modifier
+                    .stat_requirements
                     .as_ref()
-                    .map(|sr| serde_json::to_string(sr))
+                    .map(serde_json::to_string)
                     .transpose()?;
-                let attribute_scaling_json = modifier.attribute_scaling
+                let attribute_scaling_json = modifier
+                    .attribute_scaling
                     .as_ref()
-                    .map(|scaling| serde_json::to_string(scaling))
+                    .map(serde_json::to_string)
                     .transpose()?;
                 let tier = modifier.tier.map(|t| t as i64);
 
@@ -154,42 +145,46 @@ impl Database {
     }
 
     pub async fn store_collected_item(&self, item: &Item) -> Result<i64> {
-        println!("Attempting to store item in database: {} ({})", 
-            item.name.as_deref().unwrap_or("unnamed"), 
-            item.id);
-            
+        debug!(
+            "Attempting to store item in database: {} ({})",
+            item.name.as_deref().unwrap_or("unnamed"),
+            item.id
+        );
+
         let mut tx = self.pool.begin().await?;
-        
+
         // First, ensure we have the base item
         let base_item_id = match sqlx::query!(
             "SELECT id FROM base_items WHERE name = ?",
             item.item_type.base_type
         )
         .fetch_optional(&mut *tx)
-        .await? {
+        .await?
+        {
             Some(row) => {
-                println!("Found existing base item with id: {:?}", row.id);
+                debug!("Found existing base item with id: {:?}", row.id);
                 row.id.expect("Database returned null ID")
             }
             None => {
-                println!("Base item not found, this might cause an error due to foreign key constraint");
-                return Err(ScraperError::DatabaseError(
-                    format!("Base item not found: {}", item.item_type.base_type)
-                ));
+                warn!("Base item not found: {}", item.item_type.base_type);
+                return Err(ScraperError::DatabaseError(format!(
+                    "Base item not found: {}",
+                    item.item_type.base_type
+                )));
             }
         };
-        
+
         // Prepare all our JSON strings and values before the query
         let stats_json = serde_json::to_string(&item.stats)?;
         let stat_requirements_json = serde_json::to_string(&item.stat_requirements)?;
         let attribute_values_json = serde_json::to_string(&item.attribute_values)?;
-        
+
         // Extract price information into owned values that will live long enough
         let price_amount = item.price.as_ref().map(|p| p.amount);
         let price_currency = item.price.as_ref().map(|p| p.currency.clone());
-        
-        println!("Inserting item into collected_items table...");
-        
+
+        debug!("Inserting item into collected_items table");
+
         // Insert collected item
         let result = sqlx::query!(
             r#"
@@ -212,15 +207,15 @@ impl Database {
         )
         .execute(&mut *tx)
         .await?;
-        
+
         let item_id = result.last_insert_rowid();
-        println!("Successfully inserted item with ID: {}", item_id);
-        
+        debug!("Successfully inserted item with ID: {}", item_id);
+
         // Store item modifiers
         for modifier in &item.modifiers {
             let modifier_id = self.ensure_modifier(modifier, &mut tx).await?;
             let values_json = serde_json::to_string(&modifier.values)?;
-            
+
             sqlx::query!(
                 r#"
                 INSERT INTO item_modifiers (
@@ -234,10 +229,10 @@ impl Database {
             .execute(&mut *tx)
             .await?;
         }
-        
+
         tx.commit().await?;
-        println!("Successfully committed transaction for item");
-        
+        debug!("Successfully committed transaction for item");
+
         Ok(item_id)
     }
 

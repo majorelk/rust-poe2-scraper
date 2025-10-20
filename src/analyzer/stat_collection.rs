@@ -1,17 +1,9 @@
-use crate::fetcher::{
-    TradeApiClient, SearchRequest, TradeQuery, StatusFilter, StatFilter,
-    StatFilterValue, StatValue, QueryFilters, TypeFilters, CategoryFilter, 
-    CategoryOption,
-};
-use crate::models::{
-    CoreAttribute,
-    StatRequirements,
-    Item,
-    ItemModifier,
-    ItemResponse,
-    ModInfo,
-};
 use crate::errors::Result;
+use crate::fetcher::{
+    CategoryFilter, CategoryOption, QueryFilters, SearchRequest, StatFilter, StatFilterValue,
+    StatValue, StatusFilter, TradeApiClient, TradeQuery, TypeFilters,
+};
+use crate::models::{CoreAttribute, ItemResponse};
 use tokio::time::{sleep, Duration};
 
 pub struct StatCollector {
@@ -21,6 +13,7 @@ pub struct StatCollector {
     rate_limit_delay: Duration,
 }
 
+#[allow(dead_code)]
 impl StatCollector {
     pub fn new(client: TradeApiClient) -> Self {
         Self {
@@ -38,24 +31,33 @@ impl StatCollector {
 
     pub async fn collect_stat_data(&mut self) -> Result<Vec<ItemResponse>> {
         let mut all_items = Vec::new();
-        
+
         // Collect items for each attribute type
-        for attr in [CoreAttribute::Strength, CoreAttribute::Dexterity, CoreAttribute::Intelligence] {
+        for attr in [
+            CoreAttribute::Strength,
+            CoreAttribute::Dexterity,
+            CoreAttribute::Intelligence,
+        ] {
             for (min, max) in &self.threshold_ranges {
                 // Build query for this attribute range
                 let query = self.build_attribute_query(attr.clone(), *min, *max);
-                
+
                 // Fetch items and respect rate limiting
                 sleep(self.rate_limit_delay).await;
                 let items = self.client.fetch_items_with_stats(query).await?;
-                
-                println!("Collected {} items for {:?} ({}-{})", 
-                    items.len(), attr, min, max);
-                
+
+                println!(
+                    "Collected {} items for {:?} ({}-{})",
+                    items.len(),
+                    attr,
+                    min,
+                    max
+                );
+
                 all_items.extend(items);
             }
         }
-        
+
         Ok(all_items)
     }
 
@@ -65,7 +67,7 @@ impl StatCollector {
             CoreAttribute::Dexterity => "explicit.stat_1284417561",
             CoreAttribute::Intelligence => "explicit.stat_4220027924",
         };
-    
+
         SearchRequest {
             query: TradeQuery {
                 status: StatusFilter {

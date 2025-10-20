@@ -104,7 +104,7 @@ pub struct Account {
 
 impl Deref for ModInfo {
     type Target = ModBase;
-    
+
     fn deref(&self) -> &Self::Target {
         &self.base
     }
@@ -112,14 +112,13 @@ impl Deref for ModInfo {
 
 impl Deref for ExplicitMod {
     type Target = ModBase;
-    
+
     fn deref(&self) -> &Self::Target {
         &self.base
     }
 }
 
 impl ItemResponse {
-
     pub fn debug_print(&self) {
         println!("Processing ItemResponse:");
         println!("  ID: {}", self.id);
@@ -131,35 +130,43 @@ impl ItemResponse {
     }
 
     pub fn get_stat_values(&self) -> HashMap<String, i32> {
-        self.item.properties
+        self.item
+            .properties
             .iter()
             .filter_map(|prop| {
-                prop.values.first().map(|(value, _)| {
-                    (prop.name.clone(), value.parse::<i32>().unwrap_or(0))
-                })
+                prop.values
+                    .first()
+                    .map(|(value, _)| (prop.name.clone(), value.parse::<i32>().unwrap_or(0)))
             })
             .collect()
     }
 
     pub fn get_stat_requirements(&self) -> HashMap<String, u32> {
-        self.item.requirements
+        self.item
+            .requirements
             .iter()
-            .filter(|req| req.name == "Strength" || req.name == "Dexterity" || req.name == "Intelligence")
+            .filter(|req| {
+                req.name == "Strength" || req.name == "Dexterity" || req.name == "Intelligence"
+            })
             .filter_map(|req| {
-                req.values.first().map(|(value, _)| {
-                    (req.name.clone(), value.parse::<u32>().unwrap_or(0))
-                })
+                req.values
+                    .first()
+                    .map(|(value, _)| (req.name.clone(), value.parse::<u32>().unwrap_or(0)))
             })
             .collect()
     }
 
     pub fn get_explicit_mod_values(&self) -> Vec<(String, f64)> {
-        self.item.extended.mods.explicit
+        self.item
+            .extended
+            .mods
+            .explicit
             .iter()
             .filter_map(|mod_info| {
-                mod_info.magnitudes.first().map(|mag| {
-                    (mod_info.name.clone(), mag.min.parse::<f64>().unwrap_or(0.0))
-                })
+                mod_info
+                    .magnitudes
+                    .first()
+                    .map(|mag| (mod_info.name.clone(), mag.min.parse::<f64>().unwrap_or(0.0)))
             })
             .collect()
     }

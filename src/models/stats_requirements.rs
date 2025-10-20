@@ -74,7 +74,9 @@ impl ItemBaseType {
 
     // Helper to quickly identify the main attribute requirements
     pub fn get_attribute_profile(&self) -> String {
-        let attrs: Vec<_> = self.stat_requirements.primary_attributes
+        let attrs: Vec<_> = self
+            .stat_requirements
+            .primary_attributes
             .iter()
             .map(|attr| match attr {
                 CoreAttribute::Strength => "Str",
@@ -82,7 +84,7 @@ impl ItemBaseType {
                 CoreAttribute::Intelligence => "Int",
             })
             .collect();
-        
+
         attrs.join("/")
     }
 }
@@ -145,17 +147,15 @@ pub struct ModifierStatRequirements {
 // Add tests to verify the functionality
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::item_type::ItemCategory;
+    use super::*;
 
     #[test]
     fn test_item_base_type_creation() {
-        let mut base = ItemBaseType::new(
-            "Assassin's Garb".to_string(),
-            ItemCategory::Armour,
-        );
+        let mut base = ItemBaseType::new("Assassin's Garb".to_string(), ItemCategory::Armour);
 
-        base.stat_requirements.add_requirement(CoreAttribute::Dexterity, 100);
+        base.stat_requirements
+            .add_requirement(CoreAttribute::Dexterity, 100);
         assert_eq!(base.get_attribute_profile(), "Dex");
     }
 

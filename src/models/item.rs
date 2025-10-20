@@ -1,14 +1,9 @@
+use super::item_type::{ItemCategory, ItemRarity, ItemType};
+use super::poe_item::ItemResponse;
+use super::stats_requirements::{CoreAttribute, ModifierStatRequirements, StatRequirements};
+use crate::errors::{Result, ScraperError};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use super::item_type::{ItemType, ItemRarity};
-use super::stats_requirements::{
-    CoreAttribute,
-    StatRequirements,
-    ModifierStatRequirements,
-};
-use super::poe_item::ItemResponse;
-use crate::ItemCategory;
-use crate::errors::{ScraperError, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ItemModifier {
@@ -85,22 +80,24 @@ impl Item {
         }
         true
     }
-    
+
     pub fn calculate_modifier_value(&self, modifier: &ItemModifier) -> Vec<f64> {
         let mut scaled_values = modifier.values.clone();
-        
+
         if let Some(scaling) = &modifier.attribute_scaling {
-            let scaling_factor: f64 = scaling.iter()
+            let scaling_factor: f64 = scaling
+                .iter()
                 .map(|(attr, factor)| {
                     let attr_value = self.attribute_values.get(attr).unwrap_or(&0);
                     *factor * (*attr_value as f64 / 100.0)
                 })
                 .sum::<f64>();
-                
-            scaled_values.iter_mut()
+
+            scaled_values
+                .iter_mut()
                 .for_each(|value| *value *= 1.0 + scaling_factor);
         }
-        
+
         scaled_values
     }
 }
@@ -117,19 +114,27 @@ impl TryFrom<ItemResponse> for Item {
                 "Rare" => ItemRarity::Rare,
                 "Magic" => ItemRarity::Magic,
                 _ => ItemRarity::Normal,
-            }
+            },
         );
 
         // Convert explicit mods with error handling
-        let modifiers = response.item.explicit_mods.iter()
+        let modifiers = response
+            .item
+            .explicit_mods
+            .iter()
             .zip(response.item.extended.mods.explicit.iter())
             .map(|(text, mod_info)| {
-                let values = mod_info.magnitudes.iter()
+                let values = mod_info
+                    .magnitudes
+                    .iter()
                     .map(|m| m.min.parse::<f64>())
                     .collect::<std::result::Result<Vec<_>, _>>()
-                    .map_err(|e| ScraperError::ConversionError(
-                        format!("Failed to parse modifier value: {}", e)
-                    ))?;
+                    .map_err(|e| {
+                        ScraperError::ConversionError(format!(
+                            "Failed to parse modifier value: {}",
+                            e
+                        ))
+                    })?;
 
                 Ok(ItemModifier {
                     name: text.clone(),
@@ -151,14 +156,16 @@ impl TryFrom<ItemResponse> for Item {
                 "Str" | "Strength" => Some(CoreAttribute::Strength),
                 "Dex" | "Dexterity" => Some(CoreAttribute::Dexterity),
                 "Int" | "Intelligence" => Some(CoreAttribute::Intelligence),
-                _ => None
+                _ => None,
             } {
                 if let Some((val_str, _)) = req.values.first() {
-                    let value = val_str.parse::<u32>()
-                        .map_err(|e| ScraperError::ConversionError(
-                            format!("Failed to parse attribute value: {}", e)
-                        ))?;
-                    
+                    let value = val_str.parse::<u32>().map_err(|e| {
+                        ScraperError::ConversionError(format!(
+                            "Failed to parse attribute value: {}",
+                            e
+                        ))
+                    })?;
+
                     attribute_values.insert(attr.clone(), value);
                     stat_requirements.add_requirement(attr, value);
                 }
@@ -184,19 +191,19 @@ impl TryFrom<ItemResponse> for Item {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::item_type::ItemCategory;
+    use super::*;
 
     #[test]
     fn test_item_creation_and_modification() {
         let item_type = ItemType::new(
             ItemCategory::Weapon,
             "Siege Axe".to_string(),
-            ItemRarity::Unique
+            ItemRarity::Unique,
         );
 
-        let mut item = Item::new("test123".to_string(), item_type)
-            .with_name("Soul Taker".to_string());
+        let mut item =
+            Item::new("test123".to_string(), item_type).with_name("Soul Taker".to_string());
 
         assert!(item.is_unique());
         assert_eq!(item.name, Some("Soul Taker".to_string()));

@@ -1,13 +1,8 @@
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use reqwest::Client;
-use crate::models::{
-    CoreAttribute,
-    StatRequirements,
-    ItemBaseType,
-    ItemCategory,
-};
 use crate::errors::Result;
+use crate::models::{CoreAttribute, ItemBaseType, ItemCategory};
+use reqwest::Client;
+use serde::Deserialize;
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
 struct TradeApiBase {
@@ -61,7 +56,9 @@ impl BaseDataLoader {
 
     // Update base items from the trade API
     pub async fn update_from_api(&mut self, api_url: &str) -> Result<()> {
-        let response = self.client.get(api_url)
+        let response = self
+            .client
+            .get(api_url)
             .send()
             .await?
             .json::<Vec<TradeApiBase>>()
@@ -85,26 +82,23 @@ impl BaseDataLoader {
         if let Some(reqs) = api_base.requirements {
             // Add strength requirement if present
             if let Some(str_req) = reqs.strength {
-                base_type.stat_requirements.add_requirement(
-                    CoreAttribute::Strength,
-                    str_req
-                );
+                base_type
+                    .stat_requirements
+                    .add_requirement(CoreAttribute::Strength, str_req);
             }
 
             // Add dexterity requirement if present
             if let Some(dex_req) = reqs.dexterity {
-                base_type.stat_requirements.add_requirement(
-                    CoreAttribute::Dexterity,
-                    dex_req
-                );
+                base_type
+                    .stat_requirements
+                    .add_requirement(CoreAttribute::Dexterity, dex_req);
             }
 
             // Add intelligence requirement if present
             if let Some(int_req) = reqs.intelligence {
-                base_type.stat_requirements.add_requirement(
-                    CoreAttribute::Intelligence,
-                    int_req
-                );
+                base_type
+                    .stat_requirements
+                    .add_requirement(CoreAttribute::Intelligence, int_req);
             }
 
             // Set base level if available
@@ -138,10 +132,9 @@ impl BaseDataLoader {
 
     // Get all bases matching certain criteria
     pub fn get_bases_by_attribute(&self, attr: CoreAttribute) -> Vec<&ItemBaseType> {
-        self.base_cache.values()
-            .filter(|base| {
-                base.stat_requirements.primary_attributes.contains(&attr)
-            })
+        self.base_cache
+            .values()
+            .filter(|base| base.stat_requirements.primary_attributes.contains(&attr))
             .collect()
     }
 
@@ -156,8 +149,10 @@ impl BaseDataLoader {
         let mut attribute_counts = HashMap::new();
 
         for base in self.base_cache.values() {
-            *category_counts.entry(format!("{:?}", base.category)).or_insert(0) += 1;
-            
+            *category_counts
+                .entry(format!("{:?}", base.category))
+                .or_insert(0) += 1;
+
             for attr in &base.stat_requirements.primary_attributes {
                 *attribute_counts.entry(format!("{:?}", attr)).or_insert(0) += 1;
             }
@@ -178,14 +173,19 @@ pub async fn initialize_base_loader() -> Result<BaseDataLoader> {
     // Try to load initial data from file
     if let Err(_) = loader.load_from_file("data/item_bases.json").await {
         // If file doesn't exist or is invalid, update from API
-        loader.update_from_api("https://api.pathofexile.com/trade/data/items").await?;
+        loader
+            .update_from_api("https://api.pathofexile.com/trade/data/items")
+            .await?;
         // Save the fresh data
         loader.save_to_file("data/item_bases.json").await?;
     }
 
     // Check if data needs updating
-    if loader.needs_update(std::time::Duration::from_secs(86400)) {  // 24 hours
-        loader.update_from_api("https://api.pathofexile.com/trade/data/items").await?;
+    if loader.needs_update(std::time::Duration::from_secs(86400)) {
+        // 24 hours
+        loader
+            .update_from_api("https://api.pathofexile.com/trade/data/items")
+            .await?;
         loader.save_to_file("data/item_bases.json").await?;
     }
 
@@ -205,8 +205,17 @@ mod tests {
     #[test]
     fn test_category_determination() {
         let loader = BaseDataLoader::new();
-        assert!(matches!(loader.determine_category("Weapons"), Some(ItemCategory::Weapon)));
-        assert!(matches!(loader.determine_category("Armour"), Some(ItemCategory::Armour)));
-        assert!(matches!(loader.determine_category("Unknown"), Some(ItemCategory::Other)));
+        assert!(matches!(
+            loader.determine_category("Weapons"),
+            Some(ItemCategory::Weapon)
+        ));
+        assert!(matches!(
+            loader.determine_category("Armour"),
+            Some(ItemCategory::Armour)
+        ));
+        assert!(matches!(
+            loader.determine_category("Unknown"),
+            Some(ItemCategory::Other)
+        ));
     }
 }

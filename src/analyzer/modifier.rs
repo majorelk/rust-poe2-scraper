@@ -1,10 +1,7 @@
-use crate::models::{
-    ItemResponse,
-    ModifierStats,
-    ModInfo
-};
+use crate::models::{ItemResponse, ModInfo, ModifierStats};
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 pub struct ModifierAnalyzer {
     stats: HashMap<String, ModifierStats>,
     value_ranges: Vec<f64>,
@@ -12,6 +9,7 @@ pub struct ModifierAnalyzer {
     max_price: Option<f64>,
 }
 
+#[allow(dead_code)]
 impl ModifierAnalyzer {
     pub fn new(value_ranges: Vec<f64>) -> Self {
         Self {
@@ -32,7 +30,8 @@ impl ModifierAnalyzer {
     }
 
     fn process_modifier(&mut self, mod_info: &ModInfo, price: f64) {
-        let stats = self.stats
+        let stats = self
+            .stats
             .entry(mod_info.name.clone())
             .or_insert_with(|| ModifierStats::new(mod_info.name.clone()));
 

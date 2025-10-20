@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValueRange {
@@ -55,27 +54,35 @@ impl ModifierStats {
         }
 
         let values: Vec<f64> = self.price_points.iter().map(|(v, _)| *v).collect();
-        self.measures.min = *values.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
-        self.measures.max = *values.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+        self.measures.min = *values
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
+        self.measures.max = *values
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
         self.measures.mean = values.iter().sum::<f64>() / values.len() as f64;
-        
+
         // Calculate median
         let mut sorted = values.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let mid = sorted.len() / 2;
-        self.measures.median = if sorted.len() % 2 == 0 {
+        self.measures.median = if sorted.len().is_multiple_of(2) {
             (sorted[mid - 1] + sorted[mid]) / 2.0
         } else {
             sorted[mid]
         };
 
         // Calculate standard deviation
-        let variance = values.iter()
+        let variance = values
+            .iter()
             .map(|v| {
                 let diff = v - self.measures.mean;
                 diff * diff
             })
-            .sum::<f64>() / values.len() as f64;
+            .sum::<f64>()
+            / values.len() as f64;
         self.measures.std_dev = variance.sqrt();
     }
 }
