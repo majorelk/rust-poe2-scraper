@@ -65,12 +65,6 @@ impl Scraper {
         Ok(scraper)
     }
 
-    /// Set item limit
-    pub fn with_limit(mut self, limit: Option<usize>) -> Self {
-        self.limit = limit;
-        self
-    }
-
     /// Execute a scrape run with the given query
     pub async fn scrape(&mut self, query: &SearchQuery) -> Result<ScrapeMeta> {
         let source_url = format!("{}/api/trade2/search", self.config.trade_base_url);

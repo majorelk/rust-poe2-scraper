@@ -33,17 +33,17 @@ impl StatCollector {
         let mut all_items = Vec::new();
 
         // Collect items for each attribute type
-        for attr in [
+        'outer: for attr in [
             CoreAttribute::Strength,
             CoreAttribute::Dexterity,
             CoreAttribute::Intelligence,
         ] {
             for (min, max) in &self.threshold_ranges {
-                // Check if we've hit the limit
+                // Check if we've hit the limit before fetching
                 if let Some(lim) = limit {
                     if all_items.len() >= lim {
                         println!("Reached item limit of {}", lim);
-                        return Ok(all_items);
+                        break 'outer;
                     }
                 }
 
@@ -62,7 +62,20 @@ impl StatCollector {
                     max
                 );
 
-                all_items.extend(items);
+                // If we have a limit, only take what we need
+                if let Some(lim) = limit {
+                    let remaining = lim.saturating_sub(all_items.len());
+                    if remaining == 0 {
+                        break 'outer;
+                    }
+                    all_items.extend(items.into_iter().take(remaining));
+                    if all_items.len() >= lim {
+                        println!("Reached item limit of {}", lim);
+                        break 'outer;
+                    }
+                } else {
+                    all_items.extend(items);
+                }
             }
         }
 
