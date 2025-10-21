@@ -79,7 +79,6 @@ impl BaseDataLoader {
             .await?;
 
         let status = response.status();
-        
         if !status.is_success() {
             let body = response.text().await?;
             let snippet = if body.len() > 200 {
