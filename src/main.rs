@@ -193,19 +193,17 @@ fn main() -> Result<()> {
                 let client = TradeApiClient::new(args.league.clone());
                 let mut collector = StatCollector::new(client);
 
-                info!("Collecting stat data from trade API");
-                let mut items = collector
-                    .collect_stat_data()
+                // Collect stat data with limit
+                let limit_msg = if let Some(limit) = args.limit {
+                    format!(" (limited to {} items)", limit)
+                } else {
+                    String::new()
+                };
+                info!("Collecting stat data from trade API{}", limit_msg);
+                let items = collector
+                    .collect_stat_data(args.limit)
                     .await
                     .context("Failed to collect stat data")?;
-                
-                // Apply limit if specified
-                if let Some(limit) = args.limit {
-                    if items.len() > limit {
-                        info!("Limiting items from {} to {}", items.len(), limit);
-                        items.truncate(limit);
-                    }
-                }
                 
                 let total_items = items.len();
                 info!("Collected {} items from API", total_items);

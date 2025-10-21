@@ -29,7 +29,7 @@ impl StatCollector {
         }
     }
 
-    pub async fn collect_stat_data(&mut self) -> Result<Vec<ItemResponse>> {
+    pub async fn collect_stat_data(&mut self, limit: Option<usize>) -> Result<Vec<ItemResponse>> {
         let mut all_items = Vec::new();
 
         // Collect items for each attribute type
@@ -39,6 +39,14 @@ impl StatCollector {
             CoreAttribute::Intelligence,
         ] {
             for (min, max) in &self.threshold_ranges {
+                // Check if we've hit the limit
+                if let Some(lim) = limit {
+                    if all_items.len() >= lim {
+                        println!("Reached item limit of {}", lim);
+                        return Ok(all_items);
+                    }
+                }
+
                 // Build query for this attribute range
                 let query = self.build_attribute_query(attr.clone(), *min, *max);
 
