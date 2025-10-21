@@ -60,10 +60,45 @@ impl BaseDataLoader {
         let response = self
             .client
             .get(api_url)
+            .header(
+                "User-Agent",
+                "POE2-Scraper/0.1.0 (https://github.com/majorelk/rust-poe2-scraper)",
+            )
+            .header("Accept", "*/*")
+            .header("Accept-Language", "en-US,en;q=0.5")
+            .header("Content-Type", "application/json")
+            .header("X-Requested-With", "XMLHttpRequest")
+            .header("Origin", "https://www.pathofexile.com")
+            .header("Referer", "https://www.pathofexile.com/trade2")
             .send()
-            .await?
-            .json::<Vec<TradeApiBase>>()
             .await?;
+
+        let status = response.status();
+        
+        if !status.is_success() {
+            let body = response.text().await?;
+            let snippet = if body.len() > 200 {
+                format!("{}...", &body[..200])
+            } else {
+                body.clone()
+            };
+            return Err(crate::ScraperError::ApiError(format!(
+                "Base data API returned status {}: {}",
+                status, snippet
+            )));
+        }
+
+        let response_text = response.text().await?;
+        let response: Vec<TradeApiBase> = serde_json::from_str(&response_text)
+            .map_err(|e| crate::ScraperError::ApiError(format!(
+                "Failed to parse base data JSON: {}. Response: {}",
+                e,
+                if response_text.len() > 200 {
+                    format!("{}...", &response_text[..200])
+                } else {
+                    response_text
+                }
+            )))?;
 
         for base in response {
             if let Some(base_type) = self.convert_api_base(base) {
@@ -176,7 +211,7 @@ pub async fn initialize_base_loader() -> Result<BaseDataLoader> {
     if (loader.load_from_file("data/item_bases.json").await).is_err() {
         // If file doesn't exist or is invalid, update from API
         loader
-            .update_from_api("https://api.pathofexile.com/trade/data/items")
+            .update_from_api("https://www.pathofexile.com/api/trade2/data/items")
             .await?;
         // Save the fresh data
         loader.save_to_file("data/item_bases.json").await?;
@@ -186,7 +221,7 @@ pub async fn initialize_base_loader() -> Result<BaseDataLoader> {
     if loader.needs_update(std::time::Duration::from_secs(86400)) {
         // 24 hours
         loader
-            .update_from_api("https://api.pathofexile.com/trade/data/items")
+            .update_from_api("https://www.pathofexile.com/api/trade2/data/items")
             .await?;
         loader.save_to_file("data/item_bases.json").await?;
     }
