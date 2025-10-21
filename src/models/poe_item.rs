@@ -32,6 +32,7 @@ pub struct ItemResponse {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ItemData {
+    #[serde(rename = "baseType")]
     pub base_type: String,
     #[serde(rename = "explicitMods")]
     pub explicit_mods: Vec<String>,
@@ -73,6 +74,7 @@ pub struct HashData {
 pub struct Requirement {
     pub name: String,
     pub values: Vec<(String, i32)>,
+    #[serde(rename = "displayMode")]
     pub display_mode: i32,
 }
 
@@ -81,7 +83,7 @@ pub struct Property {
     pub name: String,
     #[serde(default)]
     pub values: Vec<(String, i32)>,
-    #[serde(default)]
+    #[serde(default, rename = "displayMode")]
     pub display_mode: i32,
 }
 

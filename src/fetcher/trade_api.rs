@@ -345,13 +345,6 @@ impl TradeApiClient {
         }
     }
 
-    pub async fn fetch_items_with_stats(
-        &mut self,
-        query: SearchRequest,
-    ) -> Result<Vec<ItemResponse>> {
-        self.fetch_items_with_stats_limited(query, None).await
-    }
-
     pub async fn fetch_items_with_stats_limited(
         &mut self,
         query: SearchRequest,

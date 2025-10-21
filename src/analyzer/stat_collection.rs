@@ -48,11 +48,7 @@ impl StatCollector {
                 }
 
                 // Calculate how many items we still need
-                let fetch_limit = if let Some(lim) = limit {
-                    Some(lim.saturating_sub(all_items.len()))
-                } else {
-                    None
-                };
+                let fetch_limit = limit.map(|lim| lim.saturating_sub(all_items.len()));
 
                 // Build query for this attribute range
                 let query = self.build_attribute_query(attr.clone(), *min, *max);
