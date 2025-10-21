@@ -364,13 +364,13 @@ impl TradeApiClient {
 
         // Apply limit to the number of result IDs to fetch
         let result_ids = search_response.get_result_ids();
-        let ids_to_fetch = if let Some(lim) = limit {
-            result_ids.into_iter().take(lim).collect()
+        let ids_to_fetch: Vec<String> = if let Some(lim) = limit {
+            result_ids.iter().take(lim).cloned().collect()
         } else {
-            result_ids
+            result_ids.to_vec()
         };
 
-        let raw_items = self.fetch_items(ids_to_fetch).await?;
+        let raw_items = self.fetch_items(&ids_to_fetch).await?;
         let total_items = raw_items.len();
         info!("Fetched {} raw items", total_items);
 
