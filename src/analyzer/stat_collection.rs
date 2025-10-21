@@ -47,12 +47,22 @@ impl StatCollector {
                     }
                 }
 
+                // Calculate how many items we still need
+                let fetch_limit = if let Some(lim) = limit {
+                    Some(lim.saturating_sub(all_items.len()))
+                } else {
+                    None
+                };
+
                 // Build query for this attribute range
                 let query = self.build_attribute_query(attr.clone(), *min, *max);
 
                 // Fetch items and respect rate limiting
                 sleep(self.rate_limit_delay).await;
-                let items = self.client.fetch_items_with_stats(query).await?;
+                let items = self
+                    .client
+                    .fetch_items_with_stats_limited(query, fetch_limit)
+                    .await?;
 
                 println!(
                     "Collected {} items for {:?} ({}-{})",
@@ -62,13 +72,13 @@ impl StatCollector {
                     max
                 );
 
-                // If we have a limit, only take what we need
+                // Only add items up to the limit
                 if let Some(lim) = limit {
                     let remaining = lim.saturating_sub(all_items.len());
-                    if remaining == 0 {
-                        break 'outer;
-                    }
-                    all_items.extend(items.into_iter().take(remaining));
+                    let items_to_add = items.into_iter().take(remaining).collect::<Vec<_>>();
+                    all_items.extend(items_to_add);
+
+                    // Check if we've reached the limit after adding
                     if all_items.len() >= lim {
                         println!("Reached item limit of {}", lim);
                         break 'outer;

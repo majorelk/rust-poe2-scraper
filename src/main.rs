@@ -204,7 +204,7 @@ fn main() -> Result<()> {
                     .collect_stat_data(args.limit)
                     .await
                     .context("Failed to collect stat data")?;
-                
+
                 let total_items = items.len();
                 info!("Collected {} items from API", total_items);
 

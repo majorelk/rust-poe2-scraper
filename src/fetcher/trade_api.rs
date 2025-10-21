@@ -349,12 +349,28 @@ impl TradeApiClient {
         &mut self,
         query: SearchRequest,
     ) -> Result<Vec<ItemResponse>> {
+        self.fetch_items_with_stats_limited(query, None).await
+    }
+
+    pub async fn fetch_items_with_stats_limited(
+        &mut self,
+        query: SearchRequest,
+        limit: Option<usize>,
+    ) -> Result<Vec<ItemResponse>> {
         info!("Starting items with stats fetch");
 
         let search_response = self.search_items(query).await?;
         info!("Search returned {} results", search_response.result.len());
 
-        let raw_items = self.fetch_items(search_response.get_result_ids()).await?;
+        // Apply limit to the number of result IDs to fetch
+        let result_ids = search_response.get_result_ids();
+        let ids_to_fetch = if let Some(lim) = limit {
+            result_ids.into_iter().take(lim).collect()
+        } else {
+            result_ids
+        };
+
+        let raw_items = self.fetch_items(ids_to_fetch).await?;
         let total_items = raw_items.len();
         info!("Fetched {} raw items", total_items);
 
@@ -374,6 +390,13 @@ impl TradeApiClient {
                 Err(e) => {
                     warn!("Failed to process item: {}", e);
                     failed_count += 1;
+                }
+            }
+
+            // Stop processing if we've reached the limit
+            if let Some(lim) = limit {
+                if processed_items.len() >= lim {
+                    break;
                 }
             }
         }
