@@ -5,19 +5,24 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
-struct TradeApiBase {
-    name: String,
-    category: String,
-    requirements: Option<BaseRequirements>,
-    // Add other fields as needed based on the API response
+struct TradeApiResponse {
+    result: Vec<TradeApiCategory>,
 }
 
 #[derive(Debug, Deserialize)]
-struct BaseRequirements {
-    strength: Option<u32>,
-    dexterity: Option<u32>,
-    intelligence: Option<u32>,
-    level: Option<u32>,
+struct TradeApiCategory {
+    #[allow(dead_code)]
+    id: String,
+    label: String,
+    entries: Vec<TradeApiEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TradeApiEntry {
+    #[serde(rename = "type")]
+    type_name: String,
+    #[allow(dead_code)]
+    text: String,
 }
 
 pub struct BaseDataLoader {
@@ -89,20 +94,22 @@ impl BaseDataLoader {
         }
 
         let response_text = response.text().await?;
-        let response: Vec<TradeApiBase> = serde_json::from_str(&response_text)
+        let api_response: TradeApiResponse = serde_json::from_str(&response_text)
             .map_err(|e| crate::ScraperError::ApiError(format!(
                 "Failed to parse base data JSON: {}. Response: {}",
                 e,
                 if response_text.len() > 200 {
                     format!("{}...", &response_text[..200])
                 } else {
-                    response_text
+                    response_text.clone()
                 }
             )))?;
 
-        for base in response {
-            if let Some(base_type) = self.convert_api_base(base) {
-                self.base_cache.insert(base_type.name.clone(), base_type);
+        for category in api_response.result {
+            for entry in category.entries {
+                if let Some(base_type) = self.convert_api_entry(entry, &category.label) {
+                    self.base_cache.insert(base_type.name.clone(), base_type);
+                }
             }
         }
 
@@ -110,39 +117,15 @@ impl BaseDataLoader {
         Ok(())
     }
 
-    // Convert API response to our internal ItemBaseType
-    fn convert_api_base(&self, api_base: TradeApiBase) -> Option<ItemBaseType> {
-        let category = self.determine_category(&api_base.category)?;
-        let mut base_type = ItemBaseType::new(api_base.name, category);
-
-        if let Some(reqs) = api_base.requirements {
-            // Add strength requirement if present
-            if let Some(str_req) = reqs.strength {
-                base_type
-                    .stat_requirements
-                    .add_requirement(CoreAttribute::Strength, str_req);
-            }
-
-            // Add dexterity requirement if present
-            if let Some(dex_req) = reqs.dexterity {
-                base_type
-                    .stat_requirements
-                    .add_requirement(CoreAttribute::Dexterity, dex_req);
-            }
-
-            // Add intelligence requirement if present
-            if let Some(int_req) = reqs.intelligence {
-                base_type
-                    .stat_requirements
-                    .add_requirement(CoreAttribute::Intelligence, int_req);
-            }
-
-            // Set base level if available
-            if let Some(level) = reqs.level {
-                base_type.base_level = level;
-            }
-        }
-
+    // Convert API entry to our internal ItemBaseType
+    fn convert_api_entry(&self, entry: TradeApiEntry, category_label: &str) -> Option<ItemBaseType> {
+        let category = self.determine_category(category_label)?;
+        // Use the type_name as the base item name
+        let base_type = ItemBaseType::new(entry.type_name, category);
+        
+        // Note: The /api/trade2/data/items endpoint doesn't include requirement data
+        // Requirements would need to be fetched from /api/trade2/data/static or determined separately
+        
         Some(base_type)
     }
 
