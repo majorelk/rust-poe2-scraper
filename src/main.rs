@@ -64,6 +64,10 @@ struct Args {
     /// Dry run mode - log intent without making network calls
     #[clap(long)]
     dry_run: bool,
+
+    /// Limit the number of items to process (for both --collect-data and --scrape-query)
+    #[clap(long)]
+    limit: Option<usize>,
 }
 
 async fn initialize_base_loader() -> Result<BaseDataLoader> {
@@ -190,10 +194,19 @@ fn main() -> Result<()> {
                 let mut collector = StatCollector::new(client);
 
                 info!("Collecting stat data from trade API");
-                let items = collector
+                let mut items = collector
                     .collect_stat_data()
                     .await
                     .context("Failed to collect stat data")?;
+                
+                // Apply limit if specified
+                if let Some(limit) = args.limit {
+                    if items.len() > limit {
+                        info!("Limiting items from {} to {}", items.len(), limit);
+                        items.truncate(limit);
+                    }
+                }
+                
                 let total_items = items.len();
                 info!("Collected {} items from API", total_items);
 

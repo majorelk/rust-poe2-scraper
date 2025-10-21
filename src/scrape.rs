@@ -37,6 +37,7 @@ pub struct Scraper {
     db: Db,
     config: Config,
     dry_run: bool,
+    limit: Option<usize>,
 }
 
 impl Scraper {
@@ -53,6 +54,7 @@ impl Scraper {
             db,
             config,
             dry_run: false,
+            limit: None,
         })
     }
 
@@ -61,6 +63,12 @@ impl Scraper {
         let mut scraper = Self::new(config).await?;
         scraper.dry_run = true;
         Ok(scraper)
+    }
+
+    /// Set item limit
+    pub fn with_limit(mut self, limit: Option<usize>) -> Self {
+        self.limit = limit;
+        self
     }
 
     /// Execute a scrape run with the given query
@@ -124,6 +132,9 @@ impl Scraper {
                 self.config.trade_base_url
             );
             info!("DRY RUN: Would parse response and persist to database");
+            if let Some(limit) = self.limit {
+                info!("DRY RUN: Would limit results to {} items", limit);
+            }
             meta.page_count = 1;
             meta.items_processed = 0;
             meta.items_saved = 0;
@@ -135,6 +146,11 @@ impl Scraper {
         // 2. Parse the response
         // 3. Map to Listing models
         // 4. Persist to database
+        // 5. Respect the limit if set
+
+        if let Some(limit) = self.limit {
+            info!("Item limit: {}", limit);
+        }
 
         // Mock implementation for demonstration
         debug!("Would execute API request here");
@@ -142,7 +158,7 @@ impl Scraper {
         // In a real implementation:
         // let response = self.http_client.get(&url).await?;
         // let listings = self.parse_response(response).await?;
-        // for listing in listings {
+        // for listing in listings.into_iter().take(self.limit.unwrap_or(usize::MAX)) {
         //     match self.db.insert_or_ignore_listing(&listing).await {
         //         Ok(true) => meta.items_saved += 1,
         //         Ok(false) => debug!("Listing already exists: {}", listing.id),
