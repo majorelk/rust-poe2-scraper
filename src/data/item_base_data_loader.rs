@@ -186,15 +186,20 @@ impl BaseDataLoader {
 }
 
 #[allow(dead_code)]
-pub async fn initialize_base_loader() -> Result<BaseDataLoader> {
+pub async fn initialize_base_loader(league: &str) -> Result<BaseDataLoader> {
     let mut loader = BaseDataLoader::new();
+
+    // Construct the API URL with the league parameter
+    // Based on POE2 trade API structure: /api/trade2/data/items/poe2/{league}
+    let api_url = format!("https://www.pathofexile.com/api/trade2/data/items/poe2/{}", league);
 
     // Try to load initial data from file
     if (loader.load_from_file("data/item_bases.json").await).is_err() {
         // If file doesn't exist or is invalid, update from API
         loader
-            .update_from_api("https://www.pathofexile.com/api/trade2/data/items")
-            .await?;
+            .update_from_api(&api_url)
+            .await
+            .map_err(|e| crate::ScraperError::ApiError(format!("Failed to fetch base item data from API: {}", e)))?;
         // Save the fresh data
         loader.save_to_file("data/item_bases.json").await?;
     }
@@ -203,7 +208,7 @@ pub async fn initialize_base_loader() -> Result<BaseDataLoader> {
     if loader.needs_update(std::time::Duration::from_secs(86400)) {
         // 24 hours
         loader
-            .update_from_api("https://www.pathofexile.com/api/trade2/data/items")
+            .update_from_api(&api_url)
             .await?;
         loader.save_to_file("data/item_bases.json").await?;
     }

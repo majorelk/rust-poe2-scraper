@@ -192,7 +192,7 @@ fn main() -> Result<()> {
             let base_count = db.get_base_items_count().await?;
             if base_count == 0 {
                 info!("Base items table is empty, loading from API...");
-                match crate::data::item_base_data_loader::initialize_base_loader().await {
+                match crate::data::item_base_data_loader::initialize_base_loader(&args.league).await {
                     Ok(loader) => {
                         info!("Successfully loaded {} base items from API", loader.get_all_bases().count());
                         // Store all base items in database
