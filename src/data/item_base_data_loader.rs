@@ -194,24 +194,23 @@ pub async fn initialize_base_loader(_league: &str) -> Result<BaseDataLoader> {
     // It returns all base item types without modifiers
     let api_url = "https://www.pathofexile.com/api/trade2/data/items";
 
-    // Try to load initial data from file
-    if (loader.load_from_file("data/item_bases.json").await).is_err() {
-        // If file doesn't exist or is invalid, update from API
+    // Try to load initial data from file (optional - for caching purposes)
+    let file_loaded = loader.load_from_file("data/item_bases.json").await.is_ok();
+    
+    // If file doesn't exist, is invalid, or data is outdated, fetch from API
+    if !file_loaded || loader.needs_update(std::time::Duration::from_secs(86400)) {
+        // Fetch from API
         loader
             .update_from_api(api_url)
             .await
             .map_err(|e| crate::ScraperError::ApiError(format!("Failed to fetch base item data from API: {}", e)))?;
-        // Save the fresh data
-        loader.save_to_file("data/item_bases.json").await?;
-    }
-
-    // Check if data needs updating
-    if loader.needs_update(std::time::Duration::from_secs(86400)) {
-        // 24 hours
-        loader
-            .update_from_api(api_url)
-            .await?;
-        loader.save_to_file("data/item_bases.json").await?;
+        
+        // Try to save to cache file (create directory if needed)
+        if let Err(e) = tokio::fs::create_dir_all("data").await {
+            tracing::warn!("Failed to create data directory: {}", e);
+        } else if let Err(e) = loader.save_to_file("data/item_bases.json").await {
+            tracing::warn!("Failed to save base items to cache file: {}", e);
+        }
     }
 
     Ok(loader)
