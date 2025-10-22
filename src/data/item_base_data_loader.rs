@@ -186,12 +186,12 @@ impl BaseDataLoader {
 }
 
 #[allow(dead_code)]
-pub async fn initialize_base_loader(league: &str) -> Result<BaseDataLoader> {
+pub async fn initialize_base_loader(_league: &str) -> Result<BaseDataLoader> {
     let mut loader = BaseDataLoader::new();
 
-    // Construct the API URL with the league parameter
-    // Based on POE2 trade API structure: /api/trade2/data/items/poe2/{league}
-    let api_url = format!("https://www.pathofexile.com/api/trade2/data/items/poe2/{}", league);
+    // The base item data endpoint is global, not league-specific
+    // It returns all base item types without modifiers
+    let api_url = "https://www.pathofexile.com/api/trade2/data/items";
 
     // Try to load initial data from file
     if (loader.load_from_file("data/item_bases.json").await).is_err() {
