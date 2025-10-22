@@ -247,4 +247,12 @@ impl Database {
 
         Ok(result.count > 0)
     }
+
+    pub async fn get_base_items_count(&self) -> Result<i64> {
+        let result = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM base_items")
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(result)
+    }
 }

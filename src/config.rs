@@ -121,11 +121,16 @@ mod tests {
 
     #[test]
     fn test_delay_from_rpm() {
-        let mut config = Config::default();
-        config.requests_per_min = 60;
+        let config = Config {
+            requests_per_min: 60,
+            ..Default::default()
+        };
         assert_eq!(config.delay_from_rpm(), Duration::from_millis(1000));
 
-        config.requests_per_min = 120;
+        let config = Config {
+            requests_per_min: 120,
+            ..Default::default()
+        };
         assert_eq!(config.delay_from_rpm(), Duration::from_millis(500));
     }
 

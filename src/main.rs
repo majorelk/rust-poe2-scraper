@@ -188,6 +188,29 @@ fn main() -> Result<()> {
                 .await
                 .context("Failed to initialize database")?;
 
+            // Initialize base item data if needed
+            let base_count = db.get_base_items_count().await?;
+            if base_count == 0 {
+                info!("Base items table is empty, loading from API...");
+                match crate::data::item_base_data_loader::initialize_base_loader().await {
+                    Ok(loader) => {
+                        info!("Successfully loaded {} base items from API", loader.get_all_bases().count());
+                        // Store all base items in database
+                        for base_item in loader.get_all_bases() {
+                            if let Err(e) = db.store_base_item(base_item).await {
+                                warn!("Failed to store base item '{}': {}", base_item.name, e);
+                            }
+                        }
+                        info!("Base items initialized successfully");
+                    }
+                    Err(e) => {
+                        warn!("Failed to load base items from API: {}. Continuing anyway...", e);
+                    }
+                }
+            } else {
+                info!("Base items table already has {} entries, skipping initialization", base_count);
+            }
+
             if args.collect_data {
                 info!("Starting data collection");
                 let client = TradeApiClient::new(args.league.clone());

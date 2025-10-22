@@ -35,6 +35,5 @@ mod tests {
         let _ = "pretty";
         let _ = "json";
         // If we got here, the module compiles correctly
-        assert!(true);
     }
 }

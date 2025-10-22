@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_quantile_calculation() {
-        let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let values = [1.0, 2.0, 3.0, 4.0, 5.0];
 
         // Test quantile calculation without needing a Normalizer instance
         let q0 = if values.is_empty() { 0.0 } else { values[0] };
@@ -285,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_stats_computation() {
-        let values = vec![10.0, 20.0, 30.0, 40.0, 50.0];
+        let values = [10.0, 20.0, 30.0, 40.0, 50.0];
 
         // Basic statistical computation test
         let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
