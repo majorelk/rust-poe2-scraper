@@ -1,7 +1,7 @@
 use crate::errors::Result;
 use crate::fetcher::{
-    CategoryFilter, CategoryOption, QueryFilters, SearchRequest, StatFilter, StatFilterValue,
-    StatValue, StatusFilter, TradeApiClient, TradeQuery, TypeFilters,
+    SearchRequest, StatFilter, StatFilterValue, StatValue, StatusFilter, TradeApiClient,
+    TradeQuery,
 };
 use crate::models::{CoreAttribute, ItemResponse};
 use tokio::time::{sleep, Duration};
@@ -112,15 +112,7 @@ impl StatCollector {
                     }],
                     disabled: false,
                 }],
-                filters: QueryFilters {
-                    type_filters: TypeFilters {
-                        filters: CategoryFilter {
-                            category: CategoryOption {
-                                option: "armour".to_string(),
-                            },
-                        },
-                    },
-                },
+                r#type: Some("armour".to_string()), // Filter for armour items
             },
             sort: Some(serde_json::json!({
                 "price": "asc"

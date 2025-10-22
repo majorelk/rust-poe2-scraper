@@ -44,28 +44,9 @@ pub enum TradeStatus {
 #[derive(Debug, Serialize)]
 pub struct TradeQuery {
     pub status: StatusFilter,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub r#type: Option<String>,
     pub stats: Vec<StatFilter>,
-    pub filters: QueryFilters,
-}
-
-#[derive(Debug, Serialize)]
-pub struct QueryFilters {
-    pub type_filters: TypeFilters,
-}
-
-#[derive(Debug, Serialize)]
-pub struct TypeFilters {
-    pub filters: CategoryFilter,
-}
-
-#[derive(Debug, Serialize)]
-pub struct CategoryFilter {
-    pub category: CategoryOption,
-}
-
-#[derive(Debug, Serialize)]
-pub struct CategoryOption {
-    pub option: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -296,20 +277,12 @@ impl TradeApiClient {
                 status: StatusFilter {
                     option: status.as_str().to_string(),
                 },
+                r#type: None, // No specific item type filter
                 stats: vec![StatFilter {
                     r#type: "and".to_string(),
                     filters: vec![],
                     disabled: false,
                 }],
-                filters: QueryFilters {
-                    type_filters: TypeFilters {
-                        filters: CategoryFilter {
-                            category: CategoryOption {
-                                option: "any".to_string(),
-                            },
-                        },
-                    },
-                },
             },
             sort: Some(serde_json::json!({
                 "price": "asc"
@@ -324,20 +297,12 @@ impl TradeApiClient {
                 status: StatusFilter {
                     option: status.as_str().to_string(),
                 },
+                r#type: Some("jewel".to_string()), // Filter for jewels
                 stats: vec![StatFilter {
                     r#type: "and".to_string(),
                     filters: vec![],
                     disabled: false,
                 }],
-                filters: QueryFilters {
-                    type_filters: TypeFilters {
-                        filters: CategoryFilter {
-                            category: CategoryOption {
-                                option: "jewel".to_string(),
-                            },
-                        },
-                    },
-                },
             },
             sort: Some(serde_json::json!({
                 "price": "asc"

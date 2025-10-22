@@ -3,8 +3,7 @@ use clap::Parser;
 use tracing::{info, warn};
 
 use crate::fetcher::{
-    CategoryFilter, CategoryOption, QueryFilters, SearchRequest, StatFilter, StatusFilter,
-    TradeApiClient, TradeQuery, TypeFilters,
+    SearchRequest, StatFilter, StatusFilter, TradeApiClient, TradeQuery,
 };
 use crate::{
     analyzer::{ModifierAnalyzer, StatAnalyzer, StatCollector},
@@ -300,20 +299,12 @@ fn main() -> Result<()> {
                     status: StatusFilter {
                         option: "online".to_string(),
                     },
+                    r#type: None, // No specific item type filter - search all items
                     stats: vec![StatFilter {
                         r#type: "and".to_string(),
                         filters: vec![],
                         disabled: false,
                     }],
-                    filters: QueryFilters {
-                        type_filters: TypeFilters {
-                            filters: CategoryFilter {
-                                category: CategoryOption {
-                                    option: "any".to_string(),
-                                },
-                            },
-                        },
-                    },
                 },
                 sort: Some(serde_json::json!({
                     "price": "asc"
