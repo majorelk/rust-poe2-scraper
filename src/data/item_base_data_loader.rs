@@ -21,8 +21,9 @@ struct TradeApiCategory {
 struct TradeApiEntry {
     #[serde(rename = "type")]
     type_name: String,
+    #[serde(default)]
     #[allow(dead_code)]
-    text: String,
+    text: Option<String>,
 }
 
 pub struct BaseDataLoader {
@@ -197,7 +198,7 @@ pub async fn initialize_base_loader(_league: &str) -> Result<BaseDataLoader> {
     if (loader.load_from_file("data/item_bases.json").await).is_err() {
         // If file doesn't exist or is invalid, update from API
         loader
-            .update_from_api(&api_url)
+            .update_from_api(api_url)
             .await
             .map_err(|e| crate::ScraperError::ApiError(format!("Failed to fetch base item data from API: {}", e)))?;
         // Save the fresh data
@@ -208,7 +209,7 @@ pub async fn initialize_base_loader(_league: &str) -> Result<BaseDataLoader> {
     if loader.needs_update(std::time::Duration::from_secs(86400)) {
         // 24 hours
         loader
-            .update_from_api(&api_url)
+            .update_from_api(api_url)
             .await?;
         loader.save_to_file("data/item_bases.json").await?;
     }
