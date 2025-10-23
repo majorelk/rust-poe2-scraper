@@ -186,8 +186,8 @@ impl Database {
 
         debug!("Inserting item into collected_items table");
 
-        // Insert collected item
-        let result = sqlx::query!(
+        // Insert collected item with ON CONFLICT to handle duplicates gracefully
+        let result = sqlx::query(
             r#"
             INSERT INTO collected_items (
                 trade_id, base_item_id, name,
@@ -195,17 +195,25 @@ impl Database {
                 stats, corrupted, stat_requirements,
                 attribute_values, collected_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(trade_id) DO UPDATE SET
+                price_amount = excluded.price_amount,
+                price_currency = excluded.price_currency,
+                stats = excluded.stats,
+                corrupted = excluded.corrupted,
+                stat_requirements = excluded.stat_requirements,
+                attribute_values = excluded.attribute_values,
+                collected_at = datetime('now')
             "#,
-            item.id,
-            base_item_id,
-            item.name,
-            price_amount,
-            price_currency,
-            stats_json,
-            item.corrupted,
-            stat_requirements_json,
-            attribute_values_json
         )
+        .bind(&item.id)
+        .bind(base_item_id)
+        .bind(&item.name)
+        .bind(price_amount)
+        .bind(price_currency)
+        .bind(&stats_json)
+        .bind(item.corrupted)
+        .bind(&stat_requirements_json)
+        .bind(&attribute_values_json)
         .execute(&mut *tx)
         .await?;
 
