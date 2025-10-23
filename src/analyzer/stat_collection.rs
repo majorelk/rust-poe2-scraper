@@ -112,7 +112,7 @@ impl StatCollector {
                     }],
                     disabled: false,
                 }],
-                r#type: Some("armour".to_string()), // Filter for armour items
+                r#type: None, // Search all items with these stats, not filtered by type
             },
             sort: Some(serde_json::json!({
                 "price": "asc"

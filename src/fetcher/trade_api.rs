@@ -258,6 +258,27 @@ impl TradeApiClient {
         };
         debug!("Search response body preview: {}", preview);
 
+        // First try to parse as an error response
+        #[derive(Deserialize)]
+        struct ApiError {
+            error: ErrorDetail,
+        }
+        
+        #[derive(Deserialize)]
+        struct ErrorDetail {
+            code: u32,
+            message: String,
+        }
+        
+        if let Ok(error_response) = serde_json::from_str::<ApiError>(&response_text) {
+            warn!("API returned error: code={}, message={}", error_response.error.code, error_response.error.message);
+            return Err(crate::errors::ScraperError::ApiError(format!(
+                "API error {}: {}",
+                error_response.error.code, error_response.error.message
+            )));
+        }
+        
+        // If not an error, try to parse as success response
         match serde_json::from_str::<SearchResponse>(&response_text) {
             Ok(parsed) => {
                 self.last_request = Instant::now();
