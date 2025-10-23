@@ -99,36 +99,40 @@ impl CleanedItem {
 
             // Map the explicit mods data
             mod_info: ModInfo {
-                explicit: response
-                    .item
-                    .extended
-                    .mods
-                    .explicit
-                    .iter()
-                    .map(|m| ExplicitMod {
-                        base: ModBase {
-                            name: m.name.clone(),
-                            tier: m.tier.clone(),
-                            magnitudes: m.magnitudes.clone(),
-                        },
-                        level: m
-                            .magnitudes
-                            .first()
-                            .map(|mag| mag.min.parse::<u32>().unwrap_or(0))
-                            .unwrap_or(0),
-                    })
-                    .collect(),
+                explicit: if let Some(extended) = &response.item.extended {
+                    extended
+                        .mods
+                        .explicit
+                        .iter()
+                        .map(|m| ExplicitMod {
+                            base: ModBase {
+                                name: m.name.clone(),
+                                tier: m.tier.clone(),
+                                magnitudes: m.magnitudes.clone(),
+                            },
+                            level: m
+                                    .magnitudes
+                                .first()
+                                .map(|mag| mag.min.parse::<u32>().unwrap_or(0))
+                                .unwrap_or(0),
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                },
             },
 
             // Map the hash data structure
-            mod_hashes: response
-                .item
-                .extended
-                .hashes
-                .explicit
-                .iter()
-                .map(|(k, v)| (k.clone(), vec![v.clone()]))
-                .collect(),
+            mod_hashes: if let Some(extended) = &response.item.extended {
+                extended
+                    .hashes
+                    .explicit
+                    .iter()
+                    .map(|(k, v)| (k.clone(), vec![v.clone()]))
+                    .collect()
+            } else {
+                HashMap::new()
+            },
         }
     }
 

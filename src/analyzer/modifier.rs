@@ -24,8 +24,10 @@ impl ModifierAnalyzer {
         // Price is not an Option in the listing
         let price = &item.listing.price;
         // The explicit mods are directly a Vec, not an Option
-        for mod_info in &item.item.extended.mods.explicit {
-            self.process_modifier(mod_info, price.amount);
+        if let Some(extended) = &item.item.extended {
+            for mod_info in &extended.mods.explicit {
+                self.process_modifier(mod_info, price.amount);
+            }
         }
     }
 

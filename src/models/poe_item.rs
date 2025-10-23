@@ -34,12 +34,15 @@ pub struct ItemResponse {
 pub struct ItemData {
     #[serde(rename = "baseType")]
     pub base_type: String,
-    #[serde(rename = "explicitMods")]
+    #[serde(rename = "explicitMods", default)]
     pub explicit_mods: Vec<String>,
-    pub extended: ExtendedData,
+    #[serde(default)]
+    pub extended: Option<ExtendedData>,
     #[serde(rename = "frameType")]
     pub frame_type: i32,
+    #[serde(default)]
     pub requirements: Vec<Requirement>,
+    #[serde(default)]
     pub properties: Vec<Property>,
     pub rarity: String,
     #[serde(rename = "typeLine")]
@@ -161,17 +164,20 @@ impl ItemResponse {
     }
 
     pub fn get_explicit_mod_values(&self) -> Vec<(String, f64)> {
-        self.item
-            .extended
-            .mods
-            .explicit
-            .iter()
-            .filter_map(|mod_info| {
-                mod_info
-                    .magnitudes
-                    .first()
-                    .map(|mag| (mod_info.name.clone(), mag.min.parse::<f64>().unwrap_or(0.0)))
-            })
-            .collect()
+        if let Some(extended) = &self.item.extended {
+            extended
+                .mods
+                .explicit
+                .iter()
+                .filter_map(|mod_info| {
+                    mod_info
+                        .magnitudes
+                        .first()
+                        .map(|mag| (mod_info.name.clone(), mag.min.parse::<f64>().unwrap_or(0.0)))
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
     }
 }

@@ -119,34 +119,38 @@ impl TryFrom<ItemResponse> for Item {
         );
 
         // Convert explicit mods with error handling
-        let modifiers = response
-            .item
-            .explicit_mods
-            .iter()
-            .zip(response.item.extended.mods.explicit.iter())
-            .map(|(text, mod_info)| {
-                let values = mod_info
-                    .magnitudes
-                    .iter()
-                    .map(|m| m.min.parse::<f64>())
-                    .collect::<std::result::Result<Vec<_>, _>>()
-                    .map_err(|e| {
-                        ScraperError::ConversionError(format!(
-                            "Failed to parse modifier value: {}",
+        let modifiers = if let Some(extended) = &response.item.extended {
+            response
+                .item
+                .explicit_mods
+                .iter()
+                .zip(extended.mods.explicit.iter())
+                .map(|(text, mod_info)| {
+                    let values = mod_info
+                        .magnitudes
+                        .iter()
+                        .map(|m| m.min.parse::<f64>())
+                        .collect::<std::result::Result<Vec<_>, _>>()
+                        .map_err(|e| {
+                            ScraperError::ConversionError(format!(
+                                "Failed to parse modifier value: {}",
                             e
                         ))
                     })?;
 
-                Ok(ItemModifier {
-                    name: text.clone(),
-                    tier: mod_info.tier.parse().ok(),
-                    values,
-                    is_crafted: false,
-                    stat_requirements: None,
-                    attribute_scaling: None,
+                    Ok(ItemModifier {
+                        name: text.clone(),
+                        tier: mod_info.tier.parse().ok(),
+                        values,
+                        is_crafted: false,
+                        stat_requirements: None,
+                        attribute_scaling: None,
+                    })
                 })
-            })
-            .collect::<Result<Vec<_>>>()?;
+                .collect::<Result<Vec<_>>>()?
+        } else {
+            Vec::new()
+        };
 
         // Process requirements with error handling
         let mut attribute_values = HashMap::new();

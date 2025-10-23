@@ -71,20 +71,20 @@ impl StatAnalyzer {
         let stat_requirements = item.get_stat_requirements();
         let item_attributes: HashSet<_> = stat_requirements.keys().collect();
 
-        for mod_info in &item.item.extended.mods.explicit {
-            self.update_modifier_stats(mod_info.deref(), &item_attributes, &stat_requirements);
-        }
+        if let Some(extended) = &item.item.extended {
+            for mod_info in &extended.mods.explicit {
+                self.update_modifier_stats(mod_info.deref(), &item_attributes, &stat_requirements);
+            }
 
-        self.update_modifier_correlations(
-            &item
-                .item
-                .extended
-                .mods
-                .explicit
-                .iter()
-                .map(|m| m.deref())
-                .collect::<Vec<_>>(),
-        );
+            self.update_modifier_correlations(
+                &extended
+                    .mods
+                    .explicit
+                    .iter()
+                    .map(|m| m.deref())
+                    .collect::<Vec<_>>(),
+            );
+        }
     }
 
     fn update_modifier_stats(
