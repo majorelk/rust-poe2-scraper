@@ -58,6 +58,7 @@ pub struct ExtendedData {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ModData {
+    #[serde(default)]
     pub explicit: Vec<ModInfo>,
 }
 
@@ -70,6 +71,7 @@ pub struct Magnitude {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct HashData {
+    #[serde(default)]
     pub explicit: Vec<(String, Vec<i32>)>,
 }
 

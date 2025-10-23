@@ -120,34 +120,46 @@ impl TryFrom<ItemResponse> for Item {
 
         // Convert explicit mods with error handling
         let modifiers = if let Some(extended) = &response.item.extended {
-            response
-                .item
-                .explicit_mods
-                .iter()
-                .zip(extended.mods.explicit.iter())
-                .map(|(text, mod_info)| {
-                    let values = mod_info
-                        .magnitudes
-                        .iter()
-                        .map(|m| m.min.parse::<f64>())
-                        .collect::<std::result::Result<Vec<_>, _>>()
-                        .map_err(|e| {
-                            ScraperError::ConversionError(format!(
-                                "Failed to parse modifier value: {}",
-                            e
-                        ))
-                    })?;
+            // Only process if we have explicit mod data
+            if !response.item.explicit_mods.is_empty() && !extended.mods.explicit.is_empty() {
+                // Ensure we only process up to the minimum length to avoid panics
+                let mod_count = std::cmp::min(
+                    response.item.explicit_mods.len(),
+                    extended.mods.explicit.len()
+                );
+                
+                response
+                    .item
+                    .explicit_mods
+                    .iter()
+                    .take(mod_count)
+                    .zip(extended.mods.explicit.iter().take(mod_count))
+                    .map(|(text, mod_info)| {
+                        let values = mod_info
+                            .magnitudes
+                            .iter()
+                            .map(|m| m.min.parse::<f64>())
+                            .collect::<std::result::Result<Vec<_>, _>>()
+                            .map_err(|e| {
+                                ScraperError::ConversionError(format!(
+                                    "Failed to parse modifier value: {}",
+                                e
+                            ))
+                        })?;
 
-                    Ok(ItemModifier {
-                        name: text.clone(),
-                        tier: mod_info.tier.parse().ok(),
-                        values,
-                        is_crafted: false,
-                        stat_requirements: None,
-                        attribute_scaling: None,
+                        Ok(ItemModifier {
+                            name: text.clone(),
+                            tier: mod_info.tier.parse().ok(),
+                            values,
+                            is_crafted: false,
+                            stat_requirements: None,
+                            attribute_scaling: None,
+                        })
                     })
-                })
-                .collect::<Result<Vec<_>>>()?
+                    .collect::<Result<Vec<_>>>()?
+            } else {
+                Vec::new()
+            }
         } else {
             Vec::new()
         };
