@@ -15,9 +15,12 @@ pub struct SearchRequest {
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct SearchResponse {
-    result: Vec<String>,
-    total: u32,
-    id: Option<String>,
+    pub result: Vec<String>,
+    #[serde(default)]
+    pub total: Option<u32>,
+    pub id: Option<String>,
+    #[serde(default)]
+    pub complexity: Option<u32>,
 }
 
 impl SearchResponse {
@@ -246,7 +249,14 @@ impl TradeApiClient {
         debug!("Search response status: {}", response.status());
 
         let response_text = response.text().await?;
-        debug!("Search response body: {}", response_text);
+        
+        // Log first 500 chars of response for debugging
+        let preview = if response_text.len() > 500 {
+            &response_text[..500]
+        } else {
+            &response_text
+        };
+        debug!("Search response body preview: {}", preview);
 
         match serde_json::from_str::<SearchResponse>(&response_text) {
             Ok(parsed) => {
@@ -254,10 +264,10 @@ impl TradeApiClient {
                 Ok(parsed)
             }
             Err(e) => {
-                warn!("Failed to parse search response: {}", e);
+                warn!("Failed to parse search response: {}. Response: {}", e, preview);
                 Err(crate::errors::ScraperError::ParseError(format!(
-                    "Failed to parse search response: {}",
-                    e
+                    "Failed to parse search response: {}. Response was: {}",
+                    e, preview
                 )))
             }
         }
