@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO collected_items (\n                trade_id, base_item_id, name,\n                price_amount, price_currency,\n                stats, corrupted, stat_requirements,\n                attribute_values, collected_at\n            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": []
+  },
+  "hash": "47e451f7005d05acb3519f5300df9c44e1c88584bfcac45f4a47731376dd379c"
+}

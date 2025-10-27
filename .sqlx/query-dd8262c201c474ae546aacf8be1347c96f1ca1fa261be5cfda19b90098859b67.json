@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                    INSERT INTO modifiers (\n                        name, tier, modifier_values,\n                        is_crafted, stat_requirements,\n                        attribute_scaling, created_at\n                    ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "dd8262c201c474ae546aacf8be1347c96f1ca1fa261be5cfda19b90098859b67"
+}

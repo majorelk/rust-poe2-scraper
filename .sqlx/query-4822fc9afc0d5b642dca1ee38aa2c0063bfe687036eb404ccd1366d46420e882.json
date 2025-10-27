@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO listing_modifiers (\n                listing_id, name, tier, level, hash, min_value, max_value\n            ) VALUES (?, ?, ?, ?, ?, ?, ?)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "4822fc9afc0d5b642dca1ee38aa2c0063bfe687036eb404ccd1366d46420e882"
+}

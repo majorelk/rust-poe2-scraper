@@ -35,29 +35,363 @@ The objective is to obtain an overview of modifier distributions (weights) by sc
 ## Getting Started
 
 ### Prerequisites
-- Rust programming language
+- Rust programming language (1.70+)
 - Access to the Path of Exile 2 trade site
+
+### Dev Quickstart
+
+```bash
+# Clone and setup
+git clone https://github.com/majorelk/rust-poe2-scraper.git
+cd rust-poe2-scraper
+cp .env.example .env
+
+# Build and run checks
+make check          # Run fmt, lint, and test
+make build          # Build the project
+make run            # Run the application
+
+# Or use cargo directly
+cargo build         # Build
+cargo test          # Run tests
+cargo run -- --help # Show CLI options
+```
+
+**Available Make targets:**
+- `make fmt` - Format code with rustfmt
+- `make lint` - Run clippy linter
+- `make test` - Run tests
+- `make run` - Run the application
+- `make build` - Build the project
+- `make check` - Run all checks (fmt, lint, test)
+- `make clean` - Clean build artifacts
 
 ### Installation
 1. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/rust-scraper.git
+    git clone https://github.com/majorelk/rust-poe2-scraper.git
     ```
 2. Navigate to the project directory:
     ```sh
-    cd rust-scraper
+    cd rust-poe2-scraper
     ```
-3. Build the project:
+3. Copy the example environment file and configure as needed:
+    ```sh
+    cp .env.example .env
+    ```
+4. Build the project:
     ```sh
     cargo build
     ```
 
+**Note:** This project uses sqlx with offline mode for compilation. The project includes:
+- `.cargo/config.toml` - Sets `SQLX_OFFLINE=true` to enable offline compilation
+- `.sqlx/` directory - Contains pre-compiled query metadata
+
+This allows the project to build without requiring a live database connection during compilation. If you modify SQL queries in the code, you'll need to regenerate the query metadata:
+
+```sh
+# Install sqlx-cli if not already installed
+cargo install sqlx-cli --no-default-features --features sqlite
+
+# Create database and run migrations
+sqlx database create
+sqlx migrate run
+
+# Regenerate query metadata for offline mode
+cargo sqlx prepare
+```
+
+### Configuration
+
+All configuration is done through environment variables. Copy `.env.example` to `.env` and modify as needed:
+
+```bash
+# Database Configuration
+DATABASE_URL=sqlite:poe_items.db      # SQLite database path
+DB_URL=sqlite:poe_items.db            # Alternative database URL
+
+# API Configuration
+TRADE_BASE_URL=https://www.pathofexile.com  # POE trade API base URL
+USER_AGENT="POE2-Scraper/0.1.0 (https://github.com/majorelk/rust-poe2-scraper)"  # HTTP User-Agent (quoted)
+
+# Rate Limiting
+REQUESTS_PER_MIN=60          # Maximum API requests per minute
+RATE_LIMIT_DELAY_MS=500      # Delay between requests in milliseconds
+
+# Logging
+RUST_LOG=info                # Log level: trace, debug, info, warn, error
+LOG_FORMAT=pretty            # Log format: pretty or json
+```
+
 ### Usage
-1. Run the scraper:
-    ```sh
-    cargo run
-    ```
-2. The scraped data will be saved in the `output` directory.
+
+The scraper provides several commands for different operations:
+
+#### 1. Scrape Data from Trade API
+
+```bash
+# Run a scrape with a query file
+cargo run -- --scrape-query @examples/entry-level.json
+
+# With detailed logging
+RUST_LOG=debug cargo run -- --scrape-query @examples/entry-level.json
+
+# With JSON logging for production
+RUST_LOG=info LOG_FORMAT=json cargo run -- --scrape-query @examples/entry-level.json
+```
+
+#### 2. Normalize Scraped Data
+
+```bash
+# Run normalization on scraped data
+cargo run -- --normalize
+
+# With verbose output
+RUST_LOG=debug cargo run -- --normalize
+```
+
+#### 3. Enable Metrics (Prometheus)
+
+```bash
+# Start scraper with metrics endpoint
+cargo run -- --scrape-query @examples/entry-level.json --metrics 0.0.0.0:9464
+
+# Access metrics at http://localhost:9464/metrics
+```
+
+#### 4. Dry Run Mode (Safety Rails)
+
+```bash
+# Test scraping without making network calls
+cargo run -- --scrape-query @examples/entry-level.json --dry-run
+
+# Logs intent without executing
+# Useful for testing configuration and query files
+```
+
+#### 5. Legacy Commands (for existing workflows)
+
+```bash
+# Collect data (legacy)
+cargo run -- --collect-data
+
+# Analyze stats (legacy)
+cargo run -- --analyze-stats
+```
+
+### Complete Example Workflow
+
+```bash
+# 1. Setup
+cp .env.example .env
+make build
+
+# 2. Scrape data from trade API
+cargo run -- --scrape-query @examples/entry-level.json
+
+# 3. Normalize the scraped data
+cargo run -- --normalize
+
+# 4. Run with metrics enabled
+cargo run -- --scrape-query @examples/entry-level.json --metrics 0.0.0.0:9464 &
+curl http://localhost:9464/metrics
+```
+
+### Getting Clean Items and Modifier Stats
+
+The scraper provides two primary workflows for obtaining clean items and analyzing modifier statistics:
+
+#### Method 1: New Scraping Pipeline (Recommended)
+
+This is the modern, production-ready approach using the new scraping infrastructure:
+
+```bash
+# 1. Create a search query file (or use examples/entry-level.json)
+cat > my-query.json << 'EOF'
+{
+  "league": "Standard",
+  "min_price": 1,
+  "max_price": 100,
+  "item_category": "weapon"
+}
+EOF
+
+# 2. Scrape items using the query
+cargo run -- --scrape-query @my-query.json
+
+# This will:
+# - Fetch items from the trade API with rate limiting
+# - Store raw listings in the 'listings' table
+# - Extract and store modifier data in 'listing_modifiers' table
+# - Create audit trail in 'scrape_runs' table
+
+# 3. Normalize the scraped modifier data
+cargo run -- --normalize
+
+# This will:
+# - Read modifier data from the database
+# - Group modifiers across base types
+# - Compute quantile-based statistics (Q25, median, Q75)
+# - Generate normalized scores (0-100) for cross-base comparison
+# - Store results in 'normalized_mod_stats' table
+# - Print a summary histogram of top modifiers
+
+# 4. Query the results from SQLite
+sqlite3 poe_items.db << 'SQL'
+-- View normalized modifier statistics
+SELECT * FROM normalized_mod_stats 
+ORDER BY normalized_score DESC 
+LIMIT 10;
+
+-- View raw listings with their modifiers
+SELECT l.base_type, l.item_name, lm.name, lm.min_value, lm.max_value
+FROM listings l
+JOIN listing_modifiers lm ON l.id = lm.listing_id
+LIMIT 20;
+SQL
+```
+
+#### Method 2: Legacy Collection with Analysis (Legacy)
+
+This is the original workflow using the `--collect-data` and `--analyze-stats` flags:
+
+```bash
+# 1. Collect raw item data from trade API
+cargo run -- --collect-data
+
+# This will:
+# - Fetch items from the trade API
+# - Convert ItemResponse objects into Item structs (CleanedItem)
+# - Store items in 'collected_items' table with their base_item_id
+# - Store modifiers in 'item_modifiers' table
+# - Save raw collected data to 'collected_data.json'
+
+# 2. Analyze modifier statistics
+cargo run -- --analyze-stats
+
+# This will:
+# - Process all collected items
+# - Generate attribute correlation reports
+# - Calculate modifier occurrence counts
+# - Compute average attribute thresholds
+# - Output analysis as JSON to stdout
+
+# 3. Access CleanedItem data programmatically
+# The CleanedItem struct provides a clean interface to scraped data:
+# - base_type: Item base type
+# - name: Item display name
+# - explicit_mods: List of explicit modifier texts
+# - item_level: Item level
+# - properties: Item properties (damage, armor, etc.)
+# - requirements: Stat requirements (Str, Dex, Int)
+# - mod_info: Structured modifier data with tiers and magnitudes
+# - mod_hashes: Hash mapping for modifier identification
+```
+
+#### Understanding the Data Model
+
+**CleanedItem Structure:**
+```rust
+CleanedItem {
+    base_type: String,              // "Siege Axe", "Zodiac Leather"
+    name: String,                   // Full item name/type line
+    explicit_mods: Vec<String>,     // ["Adds 10-20 Physical Damage"]
+    item_level: u32,                // 68
+    properties: Vec<ItemProperty>,  // Damage, armor, etc.
+    requirements: Vec<ItemRequirement>, // Str/Dex/Int requirements
+    mod_info: ModInfo {             // Structured modifier data
+        explicit: Vec<ExplicitMod>  // name, tier, magnitudes, level
+    },
+    mod_hashes: HashMap<String, Vec<Vec<i32>>> // For deduplication
+}
+```
+
+**Accessing Modifier Information:**
+```rust
+// Get explicit modifiers with their tiers
+let mods = cleaned_item.get_explicit_mods();
+// Returns: Vec<(&str, &str)> = [("ModName", "P1"), ...]
+
+// Get stat requirements
+let requirements = cleaned_item.get_stat_requirements();
+// Returns: HashMap<String, u32> = {"Strength": 100, "Dexterity": 50}
+```
+
+#### Database Schema Reference
+
+The scraper uses SQLite with the following key tables:
+
+**New Pipeline Tables:**
+- `listings` - Raw item listings with prices, base types, and full item data
+- `listing_modifiers` - Extracted modifiers from listings (name, tier, values)
+- `scrape_runs` - Audit trail of scraping operations
+- `normalized_mod_stats` - Normalized modifier statistics across base types
+
+**Legacy Tables:**
+- `collected_items` - Items from legacy collection pipeline
+- `item_modifiers` - Modifiers from legacy collection
+- `base_items` - Base item type definitions
+- `modifiers` - Unique modifier definitions
+
+#### Tips for Modifier Analysis
+
+1. **Bias Awareness**: Higher-value listings tend to have better modifiers. Scrape across price ranges for better distribution estimates.
+
+2. **Normalization**: Use `--normalize` to account for differences between base item types. Normalized scores (0-100) allow fair comparison.
+
+3. **Sample Size**: Larger scrapes provide better statistical accuracy. Use multiple query files to cover different item categories.
+
+4. **Incremental Scraping**: The scraper is idempotent - run multiple scrapes to accumulate data without duplicates.
+
+5. **Query Customization**: Adjust `min_price`, `max_price`, and item filters in query files to target specific item segments.
+
+### Output
+
+- **Database**: All scraped data is stored in `poe_items.db` (SQLite)
+- **Logs**: Structured logs to stdout (format configurable via `LOG_FORMAT`)
+- **Metrics**: Prometheus metrics at `/metrics` endpoint (when enabled)
+
+### Features
+
+#### Production-Ready Infrastructure
+- **Rate-limited API requests**: Governor-based rate limiting with configurable RPS and exponential backoff with jitter
+- **Polite User-Agent headers**: Properly identifies the scraper to the API
+- **Environment-based configuration**: All settings via `.env` file, no hard-coded secrets
+- **Structured logging**: JSON or pretty-printed logs with tracing, configurable log levels
+- **Idempotent database writes**: Uses `INSERT OR IGNORE` and unique constraints to prevent duplicates
+- **Robust error handling**: Uses `anyhow` and `thiserror` for comprehensive error context
+- **No `.unwrap()` calls**: All error handling is explicit and graceful
+- **Safety rails**: Dry-run mode for testing without making network calls
+- **Respectful scraping**: Respects rate limits and provides clear user identification
+
+#### Data Pipeline
+- **SQLite persistence**: Comprehensive schema with migrations for listings, modifiers, and audit trails
+- **Scrape runs tracking**: Full audit trail with timestamps, duration, items processed, and errors
+- **Normalization pipeline**: Bias-aware quantile-based scoring across base types
+- **Query-based scraping**: JSON query files for reproducible scraping runs
+
+#### Observability
+- **Prometheus metrics**: Expose metrics at `/metrics` endpoint
+- **Comprehensive instrumentation**: Tracks HTTP requests, database writes, items processed, scrape duration, normalization runs
+- **Active monitoring**: Real-time gauges for active scrapes and error counts
+
+### Available Metrics
+
+When running with `--metrics`, the following metrics are exposed:
+
+- `http_requests_total` - Total HTTP requests made
+- `http_retries_total` - Total HTTP retry attempts
+- `db_writes_total` - Total database write operations
+- `items_processed_total` - Total items processed in scrapes
+- `items_saved_total` - Total items successfully saved to database
+- `errors_total` - Total errors encountered
+- `http_request_duration_ms` - HTTP request duration histogram
+- `scrape_duration_ms` - Scrape run duration histogram
+- `normalization_duration_ms` - Normalization duration histogram
+- `active_scrapes` - Current number of active scrape operations
+- `last_normalization_stats` - Number of stats from last normalization
+- `normalizations_total` - Total normalization runs
 
 ## Contributing
 Contributions are welcome! Please open an issue or submit a pull request.

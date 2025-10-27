@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO scrape_runs (\n                run_id, started_at, source_url, shard, query_params\n            ) VALUES (?, ?, ?, ?, ?)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "df8faf428716d057f72c13f11f9d4240d2389b0b7e1d94a78e8b213148dbf0ba"
+}

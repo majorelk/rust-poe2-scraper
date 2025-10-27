@@ -14,3 +14,11 @@ src/data/*.db*
 *.sqlite3
 poe_items.db*
 poe_items.db
+
+# Ignore environment files
+.env
+.env.local
+
+# Ignore collected data
+collected_data.json
+data/item_bases.json

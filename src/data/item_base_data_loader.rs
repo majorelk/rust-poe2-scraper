@@ -1,28 +1,29 @@
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use reqwest::Client;
-use crate::models::{
-    CoreAttribute,
-    StatRequirements,
-    ItemBaseType,
-    ItemCategory,
-};
 use crate::errors::Result;
+use crate::models::{CoreAttribute, ItemBaseType, ItemCategory};
+use reqwest::Client;
+use serde::Deserialize;
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
-struct TradeApiBase {
-    name: String,
-    category: String,
-    requirements: Option<BaseRequirements>,
-    // Add other fields as needed based on the API response
+struct TradeApiResponse {
+    result: Vec<TradeApiCategory>,
 }
 
 #[derive(Debug, Deserialize)]
-struct BaseRequirements {
-    strength: Option<u32>,
-    dexterity: Option<u32>,
-    intelligence: Option<u32>,
-    level: Option<u32>,
+struct TradeApiCategory {
+    #[allow(dead_code)]
+    id: String,
+    label: String,
+    entries: Vec<TradeApiEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TradeApiEntry {
+    #[serde(rename = "type")]
+    type_name: String,
+    #[serde(default)]
+    #[allow(dead_code)]
+    text: Option<String>,
 }
 
 pub struct BaseDataLoader {
@@ -31,6 +32,7 @@ pub struct BaseDataLoader {
     last_update: std::time::SystemTime,
 }
 
+#[allow(dead_code)]
 impl BaseDataLoader {
     pub fn new() -> Self {
         Self {
@@ -61,15 +63,53 @@ impl BaseDataLoader {
 
     // Update base items from the trade API
     pub async fn update_from_api(&mut self, api_url: &str) -> Result<()> {
-        let response = self.client.get(api_url)
+        let response = self
+            .client
+            .get(api_url)
+            .header(
+                "User-Agent",
+                "POE2-Scraper/0.1.0 (https://github.com/majorelk/rust-poe2-scraper)",
+            )
+            .header("Accept", "*/*")
+            .header("Accept-Language", "en-US,en;q=0.5")
+            .header("Content-Type", "application/json")
+            .header("X-Requested-With", "XMLHttpRequest")
+            .header("Origin", "https://www.pathofexile.com")
+            .header("Referer", "https://www.pathofexile.com/trade2")
             .send()
-            .await?
-            .json::<Vec<TradeApiBase>>()
             .await?;
 
-        for base in response {
-            if let Some(base_type) = self.convert_api_base(base) {
-                self.base_cache.insert(base_type.name.clone(), base_type);
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await?;
+            let snippet = if body.len() > 200 {
+                format!("{}...", &body[..200])
+            } else {
+                body.clone()
+            };
+            return Err(crate::ScraperError::ApiError(format!(
+                "Base data API returned status {}: {}",
+                status, snippet
+            )));
+        }
+
+        let response_text = response.text().await?;
+        let api_response: TradeApiResponse = serde_json::from_str(&response_text)
+            .map_err(|e| crate::ScraperError::ApiError(format!(
+                "Failed to parse base data JSON: {}. Response: {}",
+                e,
+                if response_text.len() > 200 {
+                    format!("{}...", &response_text[..200])
+                } else {
+                    response_text.clone()
+                }
+            )))?;
+
+        for category in api_response.result {
+            for entry in category.entries {
+                if let Some(base_type) = self.convert_api_entry(entry, &category.label) {
+                    self.base_cache.insert(base_type.name.clone(), base_type);
+                }
             }
         }
 
@@ -77,42 +117,15 @@ impl BaseDataLoader {
         Ok(())
     }
 
-    // Convert API response to our internal ItemBaseType
-    fn convert_api_base(&self, api_base: TradeApiBase) -> Option<ItemBaseType> {
-        let category = self.determine_category(&api_base.category)?;
-        let mut base_type = ItemBaseType::new(api_base.name, category);
-
-        if let Some(reqs) = api_base.requirements {
-            // Add strength requirement if present
-            if let Some(str_req) = reqs.strength {
-                base_type.stat_requirements.add_requirement(
-                    CoreAttribute::Strength,
-                    str_req
-                );
-            }
-
-            // Add dexterity requirement if present
-            if let Some(dex_req) = reqs.dexterity {
-                base_type.stat_requirements.add_requirement(
-                    CoreAttribute::Dexterity,
-                    dex_req
-                );
-            }
-
-            // Add intelligence requirement if present
-            if let Some(int_req) = reqs.intelligence {
-                base_type.stat_requirements.add_requirement(
-                    CoreAttribute::Intelligence,
-                    int_req
-                );
-            }
-
-            // Set base level if available
-            if let Some(level) = reqs.level {
-                base_type.base_level = level;
-            }
-        }
-
+    // Convert API entry to our internal ItemBaseType
+    fn convert_api_entry(&self, entry: TradeApiEntry, category_label: &str) -> Option<ItemBaseType> {
+        let category = self.determine_category(category_label)?;
+        // Use the type_name as the base item name
+        let base_type = ItemBaseType::new(entry.type_name, category);
+        
+        // Note: The /api/trade2/data/items endpoint doesn't include requirement data
+        // Requirements would need to be fetched from /api/trade2/data/static or determined separately
+        
         Some(base_type)
     }
 
@@ -138,10 +151,9 @@ impl BaseDataLoader {
 
     // Get all bases matching certain criteria
     pub fn get_bases_by_attribute(&self, attr: CoreAttribute) -> Vec<&ItemBaseType> {
-        self.base_cache.values()
-            .filter(|base| {
-                base.stat_requirements.primary_attributes.contains(&attr)
-            })
+        self.base_cache
+            .values()
+            .filter(|base| base.stat_requirements.primary_attributes.contains(&attr))
             .collect()
     }
 
@@ -156,8 +168,10 @@ impl BaseDataLoader {
         let mut attribute_counts = HashMap::new();
 
         for base in self.base_cache.values() {
-            *category_counts.entry(format!("{:?}", base.category)).or_insert(0) += 1;
-            
+            *category_counts
+                .entry(format!("{:?}", base.category))
+                .or_insert(0) += 1;
+
             for attr in &base.stat_requirements.primary_attributes {
                 *attribute_counts.entry(format!("{:?}", attr)).or_insert(0) += 1;
             }
@@ -172,21 +186,31 @@ impl BaseDataLoader {
     }
 }
 
-pub async fn initialize_base_loader() -> Result<BaseDataLoader> {
+#[allow(dead_code)]
+pub async fn initialize_base_loader(_league: &str) -> Result<BaseDataLoader> {
     let mut loader = BaseDataLoader::new();
 
-    // Try to load initial data from file
-    if let Err(_) = loader.load_from_file("data/item_bases.json").await {
-        // If file doesn't exist or is invalid, update from API
-        loader.update_from_api("https://api.pathofexile.com/trade/data/items").await?;
-        // Save the fresh data
-        loader.save_to_file("data/item_bases.json").await?;
-    }
+    // The base item data endpoint is global, not league-specific
+    // It returns all base item types without modifiers
+    let api_url = "https://www.pathofexile.com/api/trade2/data/items";
 
-    // Check if data needs updating
-    if loader.needs_update(std::time::Duration::from_secs(86400)) {  // 24 hours
-        loader.update_from_api("https://api.pathofexile.com/trade/data/items").await?;
-        loader.save_to_file("data/item_bases.json").await?;
+    // Try to load initial data from file (optional - for caching purposes)
+    let file_loaded = loader.load_from_file("data/item_bases.json").await.is_ok();
+    
+    // If file doesn't exist, is invalid, or data is outdated, fetch from API
+    if !file_loaded || loader.needs_update(std::time::Duration::from_secs(86400)) {
+        // Fetch from API
+        loader
+            .update_from_api(api_url)
+            .await
+            .map_err(|e| crate::ScraperError::ApiError(format!("Failed to fetch base item data from API: {}", e)))?;
+        
+        // Try to save to cache file (create directory if needed)
+        if let Err(e) = tokio::fs::create_dir_all("data").await {
+            tracing::warn!("Failed to create data directory: {}", e);
+        } else if let Err(e) = loader.save_to_file("data/item_bases.json").await {
+            tracing::warn!("Failed to save base items to cache file: {}", e);
+        }
     }
 
     Ok(loader)
@@ -205,8 +229,17 @@ mod tests {
     #[test]
     fn test_category_determination() {
         let loader = BaseDataLoader::new();
-        assert!(matches!(loader.determine_category("Weapons"), Some(ItemCategory::Weapon)));
-        assert!(matches!(loader.determine_category("Armour"), Some(ItemCategory::Armour)));
-        assert!(matches!(loader.determine_category("Unknown"), Some(ItemCategory::Other)));
+        assert!(matches!(
+            loader.determine_category("Weapons"),
+            Some(ItemCategory::Weapon)
+        ));
+        assert!(matches!(
+            loader.determine_category("Armour"),
+            Some(ItemCategory::Armour)
+        ));
+        assert!(matches!(
+            loader.determine_category("Unknown"),
+            Some(ItemCategory::Other)
+        ));
     }
 }

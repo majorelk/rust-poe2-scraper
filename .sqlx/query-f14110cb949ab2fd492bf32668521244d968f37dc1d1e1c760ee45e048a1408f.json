@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT OR IGNORE INTO listings (\n                id, item_name, base_type, type_line, item_level, rarity,\n                category, icon, corrupted, identified,\n                price_amount, price_currency,\n                account_name, account_online_league, account_online_status, account_language,\n                whisper, indexed,\n                stash_name, stash_x, stash_y,\n                raw_data\n            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 22
+    },
+    "nullable": []
+  },
+  "hash": "f14110cb949ab2fd492bf32668521244d968f37dc1d1e1c760ee45e048a1408f"
+}

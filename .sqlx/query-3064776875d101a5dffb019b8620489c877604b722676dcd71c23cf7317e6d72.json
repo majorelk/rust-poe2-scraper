@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                UPDATE base_items SET\n                    category = ?,\n                    stat_requirements = ?,\n                    implicit_modifiers = ?,\n                    base_level = ?,\n                    tags = ?,\n                    updated_at = datetime('now')\n                WHERE id = ?\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "3064776875d101a5dffb019b8620489c877604b722676dcd71c23cf7317e6d72"
+}

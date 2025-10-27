@@ -1,17 +1,6 @@
 mod trade_api;
 
 pub use trade_api::{
-    TradeApiClient,
-    SearchRequest,
-    SearchResponse,
+    SearchRequest, StatFilter, StatFilterValue, StatValue, StatusFilter, TradeApiClient,
     TradeQuery,
-    StatusFilter,
-    StatFilter,
-    StatFilterValue,
-    StatValue,
-    QueryFilters,
-    TypeFilters,
-    CategoryFilter,
-    CategoryOption,
-    TradeStatus,
 };

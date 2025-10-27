@@ -1,17 +1,9 @@
-use crate::fetcher::{
-    TradeApiClient, SearchRequest, TradeQuery, StatusFilter, StatFilter,
-    StatFilterValue, StatValue, QueryFilters, TypeFilters, CategoryFilter, 
-    CategoryOption,
-};
-use crate::models::{
-    CoreAttribute,
-    StatRequirements,
-    Item,
-    ItemModifier,
-    ItemResponse,
-    ModInfo,
-};
 use crate::errors::Result;
+use crate::fetcher::{
+    SearchRequest, StatFilter, StatFilterValue, StatValue, StatusFilter, TradeApiClient,
+    TradeQuery,
+};
+use crate::models::{CoreAttribute, ItemResponse};
 use tokio::time::{sleep, Duration};
 
 pub struct StatCollector {
@@ -21,6 +13,7 @@ pub struct StatCollector {
     rate_limit_delay: Duration,
 }
 
+#[allow(dead_code)]
 impl StatCollector {
     pub fn new(client: TradeApiClient) -> Self {
         Self {
@@ -36,26 +29,62 @@ impl StatCollector {
         }
     }
 
-    pub async fn collect_stat_data(&mut self) -> Result<Vec<ItemResponse>> {
+    pub async fn collect_stat_data(&mut self, limit: Option<usize>) -> Result<Vec<ItemResponse>> {
         let mut all_items = Vec::new();
-        
+
         // Collect items for each attribute type
-        for attr in [CoreAttribute::Strength, CoreAttribute::Dexterity, CoreAttribute::Intelligence] {
+        'outer: for attr in [
+            CoreAttribute::Strength,
+            CoreAttribute::Dexterity,
+            CoreAttribute::Intelligence,
+        ] {
             for (min, max) in &self.threshold_ranges {
+                // Check if we've hit the limit before fetching
+                if let Some(lim) = limit {
+                    if all_items.len() >= lim {
+                        println!("Reached item limit of {}", lim);
+                        break 'outer;
+                    }
+                }
+
+                // Calculate how many items we still need
+                let fetch_limit = limit.map(|lim| lim.saturating_sub(all_items.len()));
+
                 // Build query for this attribute range
                 let query = self.build_attribute_query(attr.clone(), *min, *max);
-                
+
                 // Fetch items and respect rate limiting
                 sleep(self.rate_limit_delay).await;
-                let items = self.client.fetch_items_with_stats(query).await?;
-                
-                println!("Collected {} items for {:?} ({}-{})", 
-                    items.len(), attr, min, max);
-                
-                all_items.extend(items);
+                let items = self
+                    .client
+                    .fetch_items_with_stats_limited(query, fetch_limit)
+                    .await?;
+
+                println!(
+                    "Collected {} items for {:?} ({}-{})",
+                    items.len(),
+                    attr,
+                    min,
+                    max
+                );
+
+                // Only add items up to the limit
+                if let Some(lim) = limit {
+                    let remaining = lim.saturating_sub(all_items.len());
+                    let items_to_add = items.into_iter().take(remaining).collect::<Vec<_>>();
+                    all_items.extend(items_to_add);
+
+                    // Check if we've reached the limit after adding
+                    if all_items.len() >= lim {
+                        println!("Reached item limit of {}", lim);
+                        break 'outer;
+                    }
+                } else {
+                    all_items.extend(items);
+                }
             }
         }
-        
+
         Ok(all_items)
     }
 
@@ -65,7 +94,7 @@ impl StatCollector {
             CoreAttribute::Dexterity => "explicit.stat_1284417561",
             CoreAttribute::Intelligence => "explicit.stat_4220027924",
         };
-    
+
         SearchRequest {
             query: TradeQuery {
                 status: StatusFilter {
@@ -83,15 +112,7 @@ impl StatCollector {
                     }],
                     disabled: false,
                 }],
-                filters: QueryFilters {
-                    type_filters: TypeFilters {
-                        filters: CategoryFilter {
-                            category: CategoryOption {
-                                option: "armour".to_string(),
-                            },
-                        },
-                    },
-                },
+                r#type: None, // Search all items with these stats, not filtered by type
             },
             sort: Some(serde_json::json!({
                 "price": "asc"

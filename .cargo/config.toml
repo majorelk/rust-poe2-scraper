@@ -1,0 +1,6 @@
+# Cargo configuration for rust-poe2-scraper
+
+[env]
+# Enable SQLx offline mode to compile without a database connection
+# The .sqlx directory contains pre-generated query metadata
+SQLX_OFFLINE = "true"

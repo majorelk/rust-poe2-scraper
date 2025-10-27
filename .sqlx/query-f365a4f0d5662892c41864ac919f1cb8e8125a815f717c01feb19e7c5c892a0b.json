@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            UPDATE scrape_runs\n            SET completed_at = ?,\n                duration_ms = ?,\n                page_count = ?,\n                items_processed = ?,\n                items_saved = ?,\n                errors = ?\n            WHERE run_id = ?\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "f365a4f0d5662892c41864ac919f1cb8e8125a815f717c01feb19e7c5c892a0b"
+}

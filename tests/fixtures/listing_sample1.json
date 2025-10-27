@@ -1,0 +1,37 @@
+{
+  "id": "sample-listing-123",
+  "item": {
+    "name": "Dragon's Claw",
+    "base_type": "Iron Greatsword",
+    "type_line": "Iron Greatsword",
+    "item_level": 68,
+    "rarity": "rare",
+    "category": "weapon",
+    "corrupted": false,
+    "identified": true,
+    "modifiers": [
+      {
+        "name": "Adds Physical Damage",
+        "tier": "T1",
+        "level": 75,
+        "magnitudes": [
+          {
+            "hash": "phys_damage",
+            "min": 10.0,
+            "max": 20.0
+          }
+        ]
+      }
+    ]
+  },
+  "price": {
+    "amount": 50.0,
+    "currency": "chaos"
+  },
+  "account": {
+    "name": "TestTrader",
+    "online": {
+      "league": "Standard"
+    }
+  }
+}

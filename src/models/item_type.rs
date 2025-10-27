@@ -29,6 +29,7 @@ pub struct ItemType {
     pub required_level: Option<u32>,
 }
 
+#[allow(dead_code)]
 impl ItemType {
     pub fn new(category: ItemCategory, base_type: String, rarity: ItemRarity) -> Self {
         Self {
@@ -45,10 +46,9 @@ impl ItemType {
     }
 
     pub fn is_equipment(&self) -> bool {
-        matches!(self.category, 
-            ItemCategory::Weapon | 
-            ItemCategory::Armour | 
-            ItemCategory::Accessory
+        matches!(
+            self.category,
+            ItemCategory::Weapon | ItemCategory::Armour | ItemCategory::Accessory
         )
     }
 }
@@ -78,8 +78,9 @@ mod tests {
         let item = ItemType::new(
             ItemCategory::Weapon,
             "Siege Axe".to_string(),
-            ItemRarity::Unique
-        ).with_level(68);
+            ItemRarity::Unique,
+        )
+        .with_level(68);
 
         assert_eq!(item.category, ItemCategory::Weapon);
         assert_eq!(item.base_type, "Siege Axe");

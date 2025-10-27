@@ -1,10 +1,10 @@
+use crate::errors::Result;
+use crate::models::ItemResponse;
+use crate::ScraperError;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use crate::errors::Result;
 use std::time::{Duration, Instant};
-use crate::models::{Item, ItemResponse};
-use rand; // 0.8.4
-use crate::ScraperError;
+use tracing::{debug, info, warn};
 
 #[derive(Debug, Serialize)]
 pub struct SearchRequest {
@@ -13,10 +13,14 @@ pub struct SearchRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct SearchResponse {
-    result: Vec<String>,
-    total: u32,
-    id: Option<String>,
+    pub result: Vec<String>,
+    #[serde(default)]
+    pub total: Option<u32>,
+    pub id: Option<String>,
+    #[serde(default)]
+    pub complexity: Option<u32>,
 }
 
 impl SearchResponse {
@@ -32,6 +36,7 @@ pub struct TradeApiClient {
     rate_limit_delay: Duration,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub enum TradeStatus {
     Online,
@@ -42,28 +47,9 @@ pub enum TradeStatus {
 #[derive(Debug, Serialize)]
 pub struct TradeQuery {
     pub status: StatusFilter,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub r#type: Option<String>,
     pub stats: Vec<StatFilter>,
-    pub filters: QueryFilters,
-}
-
-#[derive(Debug, Serialize)]
-pub struct QueryFilters {
-    pub type_filters: TypeFilters,
-}
-
-#[derive(Debug, Serialize)]
-pub struct TypeFilters {
-    pub filters: CategoryFilter,
-}
-
-#[derive(Debug, Serialize)]
-pub struct CategoryFilter {
-    pub category: CategoryOption,
-}
-
-#[derive(Debug, Serialize)]
-pub struct CategoryOption {
-    pub option: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -91,6 +77,7 @@ pub struct StatusFilter {
     pub option: String,
 }
 
+#[allow(dead_code)]
 impl TradeStatus {
     fn as_str(&self) -> &'static str {
         match self {
@@ -103,38 +90,52 @@ impl TradeStatus {
 
 impl TradeApiClient {
     pub fn new(league: String) -> Self {
+        // Get rate limit delay from environment or use default
+        let rate_limit_ms = std::env::var("RATE_LIMIT_DELAY_MS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(500);
+
+        info!(
+            "Initializing Trade API client with {}ms rate limit",
+            rate_limit_ms
+        );
+
         Self {
             client: Client::new(),
             league,
             last_request: Instant::now(),
-            rate_limit_delay: Duration::from_millis(100),
+            rate_limit_delay: Duration::from_millis(rate_limit_ms),
         }
     }
 
     async fn process_raw_item(&self, raw_item: serde_json::Value) -> Result<ItemResponse> {
-        println!("Processing raw item structure:");
-        println!("{}", serde_json::to_string_pretty(&raw_item).unwrap_or_default());
-        
+        debug!(
+            "Processing raw item structure: {}",
+            serde_json::to_string_pretty(&raw_item).unwrap_or_default()
+        );
+
         match serde_json::from_value::<ItemResponse>(raw_item.clone()) {
             Ok(response) => {
-                println!("Successfully processed item:");
-                println!("  ID: {}", response.id);
-                println!("  Base Type: {}", response.item.base_type);
-                println!("  Type Line: {}", response.item.type_line);
-                println!("  Price: {} {}", response.listing.price.amount, response.listing.price.currency);
-                
+                debug!(
+                    "Successfully processed item: ID={}, Base={}, Type={}, Price={} {}",
+                    response.id,
+                    response.item.base_type,
+                    response.item.type_line,
+                    response.listing.price.amount,
+                    response.listing.price.currency
+                );
                 Ok(response)
             }
             Err(e) => {
-                println!("Failed to process item. Error: {}", e);
-                println!("Examining raw item fields:");
+                warn!("Failed to process item: {}", e);
                 if let Some(obj) = raw_item.as_object() {
-                    for (key, value) in obj {
-                        println!("  {}: {:?}", key, value);
+                    for (key, _) in obj {
+                        debug!("Raw item field: {}", key);
                     }
                 }
                 Err(ScraperError::ParseError(format!(
-                    "Failed to parse item: {}. Raw data available in debug output.",
+                    "Failed to parse item: {}",
                     e
                 )))
             }
@@ -143,105 +144,156 @@ impl TradeApiClient {
 
     pub async fn fetch_items(&mut self, ids: &[String]) -> Result<Vec<serde_json::Value>> {
         let mut all_items = Vec::new();
-        
+
         // Process IDs in batches of 10
         for chunk in ids.chunks(10) {
-            // Increase the base delay and add some randomness to avoid synchronization
-            let delay = Duration::from_millis(500 + (rand::random::<u64>() % 100));
+            // Add randomness to avoid synchronization
+            let jitter_ms = rand::random::<u64>() % 100;
+            let delay = self.rate_limit_delay + Duration::from_millis(jitter_ms);
             self.respect_rate_limit(delay).await;
-    
+
             let ids_str = chunk.join(",");
-            let url = format!(
-                "https://www.pathofexile.com/api/trade2/fetch/{}",
-                ids_str
-            );
-    
-            println!("Fetching items from: {}", url);
-    
-            let response = self.client
+            let url = format!("https://www.pathofexile.com/api/trade2/fetch/{}", ids_str);
+
+            info!("Fetching {} items", chunk.len());
+            debug!("Fetch URL: {}", url);
+
+            let response = self
+                .client
                 .get(&url)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0")
+                .header(
+                    "User-Agent",
+                    "POE2-Scraper/0.1.0 (https://github.com/majorelk/rust-poe2-scraper)",
+                )
                 .header("Accept", "*/*")
                 .header("Accept-Language", "en-US,en;q=0.5")
                 .header("Content-Type", "application/json")
                 .header("X-Requested-With", "XMLHttpRequest")
                 .header("Origin", "https://www.pathofexile.com")
-                .header("Referer", format!("https://www.pathofexile.com/trade2/search/poe2/{}", self.league))
+                .header(
+                    "Referer",
+                    format!(
+                        "https://www.pathofexile.com/trade2/search/poe2/{}",
+                        self.league
+                    ),
+                )
                 .send()
                 .await?;
-    
+
             let status = response.status();
-            println!("Fetch response status: {}", status);
-            
+            debug!("Fetch response status: {}", status);
+
             let response_text = response.text().await?;
-            println!("Fetch response body: {}", response_text);
-    
-            // If we hit rate limit, wait and retry
+            debug!("Fetch response body: {}", response_text);
+
+            // If we hit rate limit, implement exponential backoff
             if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                println!("Rate limit hit, waiting 5 seconds before retry...");
+                warn!("Rate limit hit, implementing backoff");
                 tokio::time::sleep(Duration::from_secs(5)).await;
                 continue;
             }
-    
+
             if status.is_success() {
                 let json_response: serde_json::Value = serde_json::from_str(&response_text)?;
                 if let Some(items) = json_response["result"].as_array() {
                     all_items.extend(items.to_vec());
                 }
             }
-    
+
             self.last_request = Instant::now();
         }
-    
+
         Ok(all_items)
     }
 
     pub async fn search_items(&mut self, query: SearchRequest) -> Result<SearchResponse> {
-        let delay = Duration::from_millis(500 + (rand::random::<u64>() % 100));
+        let jitter_ms = rand::random::<u64>() % 100;
+        let delay = self.rate_limit_delay + Duration::from_millis(jitter_ms);
         self.respect_rate_limit(delay).await;
-        
+
         let url = format!(
             "https://www.pathofexile.com/api/trade2/search/poe2/{}",
             self.league
         );
 
-        println!("Sending search request to: {}", url);
-        println!("Query payload: {}", serde_json::to_string_pretty(&query).unwrap_or_default());
+        info!("Sending search request");
+        debug!("Search URL: {}", url);
+        debug!(
+            "Query payload: {}",
+            serde_json::to_string_pretty(&query).unwrap_or_default()
+        );
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0")
+            .header(
+                "User-Agent",
+                "POE2-Scraper/0.1.0 (https://github.com/majorelk/rust-poe2-scraper)",
+            )
             .header("Accept", "*/*")
             .header("Accept-Language", "en-US,en;q=0.5")
             .header("Content-Type", "application/json")
             .header("X-Requested-With", "XMLHttpRequest")
             .header("Origin", "https://www.pathofexile.com")
-            .header("Referer", format!("https://www.pathofexile.com/trade2/search/poe2/{}", self.league))
+            .header(
+                "Referer",
+                format!(
+                    "https://www.pathofexile.com/trade2/search/poe2/{}",
+                    self.league
+                ),
+            )
             .json(&query)
             .send()
             .await?;
 
-        println!("Search response status: {}", response.status());
-        
-        let response_text = response.text().await?;
-        println!("Search response body: {}", response_text);
+        debug!("Search response status: {}", response.status());
 
+        let response_text = response.text().await?;
+        
+        // Log first 500 chars of response for debugging
+        let preview = if response_text.len() > 500 {
+            &response_text[..500]
+        } else {
+            &response_text
+        };
+        debug!("Search response body preview: {}", preview);
+
+        // First try to parse as an error response
+        #[derive(Deserialize)]
+        struct ApiError {
+            error: ErrorDetail,
+        }
+        
+        #[derive(Deserialize)]
+        struct ErrorDetail {
+            code: u32,
+            message: String,
+        }
+        
+        if let Ok(error_response) = serde_json::from_str::<ApiError>(&response_text) {
+            warn!("API returned error: code={}, message={}", error_response.error.code, error_response.error.message);
+            return Err(crate::errors::ScraperError::ApiError(format!(
+                "API error {}: {}",
+                error_response.error.code, error_response.error.message
+            )));
+        }
+        
+        // If not an error, try to parse as success response
         match serde_json::from_str::<SearchResponse>(&response_text) {
             Ok(parsed) => {
                 self.last_request = Instant::now();
                 Ok(parsed)
-            },
+            }
             Err(e) => {
-                eprintln!("Failed to parse search response: {}", e);
-                eprintln!("Response body was: {}", response_text);
+                warn!("Failed to parse search response: {}. Response: {}", e, preview);
                 Err(crate::errors::ScraperError::ParseError(format!(
-                    "Failed to parse search response: {}. Response body: {}", 
-                    e, response_text
+                    "Failed to parse search response: {}. Response was: {}",
+                    e, preview
                 )))
             }
         }
     }
-    
+
     async fn respect_rate_limit(&self, delay: Duration) {
         let elapsed = self.last_request.elapsed();
         if elapsed < delay {
@@ -249,53 +301,19 @@ impl TradeApiClient {
         }
     }
 
+    #[allow(dead_code)]
     pub fn build_basic_query(&self, status: TradeStatus) -> SearchRequest {
         SearchRequest {
             query: TradeQuery {
                 status: StatusFilter {
                     option: status.as_str().to_string(),
                 },
+                r#type: None, // No specific item type filter
                 stats: vec![StatFilter {
                     r#type: "and".to_string(),
                     filters: vec![],
                     disabled: false,
                 }],
-                filters: QueryFilters {
-                    type_filters: TypeFilters {
-                        filters: CategoryFilter {
-                            category: CategoryOption {
-                                option: "any".to_string(),
-                            },
-                        },
-                    },
-                },
-            },
-            sort: Some(serde_json::json!({
-                "price": "asc"
-            })),
-        }
-    }
-    
-    pub fn build_jewel_query(&self, status: TradeStatus) -> SearchRequest {
-        SearchRequest {
-            query: TradeQuery {
-                status: StatusFilter {
-                    option: status.as_str().to_string(),
-                },
-                stats: vec![StatFilter {
-                    r#type: "and".to_string(),
-                    filters: vec![],
-                    disabled: false,
-                }],
-                filters: QueryFilters {
-                    type_filters: TypeFilters {
-                        filters: CategoryFilter {
-                            category: CategoryOption {
-                                option: "jewel".to_string(),
-                            },
-                        },
-                    },
-                },
             },
             sort: Some(serde_json::json!({
                 "price": "asc"
@@ -303,41 +321,80 @@ impl TradeApiClient {
         }
     }
 
-    pub async fn fetch_items_with_stats(&mut self, query: SearchRequest) -> Result<Vec<ItemResponse>> {
-        println!("Starting items with stats fetch...");
-        
+    #[allow(dead_code)]
+    pub fn build_jewel_query(&self, status: TradeStatus) -> SearchRequest {
+        SearchRequest {
+            query: TradeQuery {
+                status: StatusFilter {
+                    option: status.as_str().to_string(),
+                },
+                r#type: Some("jewel".to_string()), // Filter for jewels
+                stats: vec![StatFilter {
+                    r#type: "and".to_string(),
+                    filters: vec![],
+                    disabled: false,
+                }],
+            },
+            sort: Some(serde_json::json!({
+                "price": "asc"
+            })),
+        }
+    }
+
+    pub async fn fetch_items_with_stats_limited(
+        &mut self,
+        query: SearchRequest,
+        limit: Option<usize>,
+    ) -> Result<Vec<ItemResponse>> {
+        info!("Starting items with stats fetch");
+
         let search_response = self.search_items(query).await?;
-        println!("Search returned {} results", search_response.result.len());
-        
-        let raw_items = self.fetch_items(search_response.get_result_ids()).await?;
-        let total_items = raw_items.len();  // Store the length before processing
-        println!("Fetched {} raw items", total_items);
-        
+        info!("Search returned {} results", search_response.result.len());
+
+        // Apply limit to the number of result IDs to fetch
+        let result_ids = search_response.get_result_ids();
+        let ids_to_fetch: Vec<String> = if let Some(lim) = limit {
+            result_ids.iter().take(lim).cloned().collect()
+        } else {
+            result_ids.to_vec()
+        };
+
+        let raw_items = self.fetch_items(&ids_to_fetch).await?;
+        let total_items = raw_items.len();
+        info!("Fetched {} raw items", total_items);
+
         let mut processed_items = Vec::new();
         let mut failed_count = 0;
-        
+
         // Process each raw item using our diagnostic method
         for raw_item in raw_items {
             match self.process_raw_item(raw_item.clone()).await {
                 Ok(item) => {
-                    println!("Processed item: {} - {} {}", 
-                        item.id,
-                        item.item.base_type,
-                        item.listing.price.amount);
+                    debug!(
+                        "Processed item: {} - {} {}",
+                        item.id, item.item.base_type, item.listing.price.amount
+                    );
                     processed_items.push(item);
-                },
+                }
                 Err(e) => {
-                    eprintln!("Failed to process item: {}", e);
+                    warn!("Failed to process item: {}", e);
                     failed_count += 1;
                 }
             }
+
+            // Stop processing if we've reached the limit
+            if let Some(lim) = limit {
+                if processed_items.len() >= lim {
+                    break;
+                }
+            }
         }
-    
-        println!("\nProcessing summary:");
-        println!("Total items attempted: {}", total_items);  // Use our stored count
-        println!("Successfully processed: {}", processed_items.len());
-        println!("Failed to process: {}", failed_count);
-        
+
+        info!("Processing summary:");
+        info!("Total items attempted: {}", total_items);
+        info!("Successfully processed: {}", processed_items.len());
+        info!("Failed to process: {}", failed_count);
+
         Ok(processed_items)
     }
 }
